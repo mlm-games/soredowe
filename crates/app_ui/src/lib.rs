@@ -162,6 +162,7 @@ fn details_card(store: Rc<Store>) -> View {
 }
 
 pub fn root_view(store: Rc<Store>) -> View {
+    let query_live = remember_with_key("query_live", || signal(String::new()));
     // Visual TextField; query comes from Store (see note at top)
     let _search_tf = remember_with_key("search_tf", || {
         Rc::new(RefCell::new(repose_ui::textfield::TextFieldState::new()))
@@ -202,12 +203,22 @@ pub fn root_view(store: Rc<Store>) -> View {
                         .semantics("Search field"),
                     {
                         let store = store.clone();
-                        move |text| store.dispatch(Action::SetQuery(text))
+                        let query_live = query_live.clone();
+                        move |text| {
+                            query_live.set(text.clone());
+                            store.dispatch(Action::SetQuery(text));
+                        }
                     },
                 ),
+                // Search button: ensure store gets the very latest text, then search
                 Button("Search", {
                     let store = store.clone();
-                    move || store.dispatch(Action::Search)
+                    let query_live = query_live.clone();
+                    move || {
+                        let q = query_live.get();
+                        store.dispatch(Action::SetQuery(q));
+                        store.dispatch(Action::Search);
+                    }
                 })
                 .modifier(Modifier::new().padding(8.0)),
                 // Filters
