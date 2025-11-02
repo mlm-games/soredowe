@@ -1,6 +1,6 @@
-use compose_core::signal::signal;
 use crossbeam_channel as chan;
 use domain::*;
+use repose_core::signal::signal;
 
 const MAX_LOG: usize = 256 * 1024;
 
@@ -50,7 +50,7 @@ pub enum Action {
 }
 
 pub struct Store {
-    pub state: compose_core::signal::Signal<AppState>,
+    pub state: repose_core::signal::Signal<AppState>,
     pub tx_jobs: chan::Sender<domain::Job>,
     next_id: std::sync::atomic::AtomicU64,
 }

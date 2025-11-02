@@ -7,7 +7,7 @@ use app_ui::{
 };
 use backend_aur::AurBackend;
 use backend_pacman::PacmanCli;
-use compose_platform::run_desktop_app;
+use repose_platform::run_desktop_app;
 use domain::{Executor, PackageBackend};
 
 fn main() -> anyhow::Result<()> {

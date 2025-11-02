@@ -1,10 +1,10 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <component type="desktop-application">
-  <id>org.heyday.Heyday</id>
+  <id>io.github.mlm_games.Heyday</id>
   <name>Heyday</name>
   <summary>Fast GUI for pacman and AUR</summary>
   <description>
-    <p>Heyday lets you search, view, and install packages from Arch repositories and the AUR with a clean, fast UI.</p>
+    <p>Heyday lets you search, view, and install packages from Arch repositories and the AUR with a noob friendly, fast UI.</p>
   </description>
   <developer id="org.heyday">
     <name>Heyday Project</name>

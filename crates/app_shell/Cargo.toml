@@ -1,14 +1,14 @@
 [package]
 name = "app_shell"
 version = "0.1.0"
-edition = "2021"
+edition = "2024"
 
 [dependencies]
-compose-platform = { path = "../../../repose/crates/compose-platform", features = [
+repose-platform = { path = "../../../repose/crates/repose-platform", features = [
     "desktop",
 ] }
-compose-ui = { path = "../../../repose/crates/compose-ui" }
-compose-core = { path = "../../../repose/crates/compose-core" }
+repose-ui = { path = "../../../repose/crates/repose-ui" }
+repose-core = { path = "../../../repose/crates/repose-core" }
 crossbeam-channel = "0.5.15"
 anyhow = "1"
 env_logger = "0.11"

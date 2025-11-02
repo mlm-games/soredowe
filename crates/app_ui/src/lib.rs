@@ -1,7 +1,7 @@
 use crate::state::{Action, SortMode, Store};
-use compose_core::*;
-use compose_ui::*;
 use domain::{PackageSummary, Source};
+use repose_core::*;
+use repose_ui::*;
 use std::{cell::RefCell, rc::Rc};
 
 pub mod state;
@@ -164,7 +164,7 @@ fn details_card(store: Rc<Store>) -> View {
 pub fn root_view(store: Rc<Store>) -> View {
     // Visual TextField; query comes from Store (see note at top)
     let _search_tf = remember_with_key("search_tf", || {
-        Rc::new(RefCell::new(compose_ui::textfield::TextFieldState::new()))
+        Rc::new(RefCell::new(repose_ui::textfield::TextFieldState::new()))
     });
 
     let s = store.state.get();
@@ -192,7 +192,7 @@ pub fn root_view(store: Rc<Store>) -> View {
             separator(),
             // Search row
             Row(Modifier::new().padding(8.0)).child((
-                compose_ui::textfield::TextField(
+                repose_ui::textfield::TextField(
                     "Search packages…",
                     Modifier::new()
                         .size(420.0, 36.0)
@@ -259,11 +259,11 @@ pub fn root_view(store: Rc<Store>) -> View {
                                     Color::from_hex("#888888"),
                                 ))
                             } else {
-                                compose_ui::lazy::LazyColumn(
+                                repose_ui::lazy::LazyColumn(
                                     s.results.clone(),
                                     56.0,
                                     remember_with_key("scroll", || {
-                                        RefCell::new(compose_ui::lazy::LazyColumnState::new())
+                                        RefCell::new(repose_ui::lazy::LazyColumnState::new())
                                     }),
                                     Modifier::new().fill_max_size(),
                                     {

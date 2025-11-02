@@ -4,7 +4,7 @@ version = "0.1.0"
 edition = "2021"
 
 [dependencies]
-compose-ui = { path = "../../../repose/crates/compose-ui" }
-compose-core = { path = "../../../repose/crates/compose-core" }
+repose-ui = { path = "../../../repose/crates/repose-ui" }
+repose-core = { path = "../../../repose/crates/repose-core" }
 domain = { path = "../domain" }
 crossbeam-channel = "0.5.15"
