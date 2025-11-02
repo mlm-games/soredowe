@@ -1,0 +1,10 @@
+[package]
+name = "app_ui"
+version = "0.1.0"
+edition = "2021"
+
+[dependencies]
+compose-ui = { path = "../../../repose/crates/compose-ui" }
+compose-core = { path = "../../../repose/crates/compose-core" }
+domain = { path = "../domain" }
+crossbeam-channel = "0.5.15"

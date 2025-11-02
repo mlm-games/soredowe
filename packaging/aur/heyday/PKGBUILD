@@ -1,0 +1,25 @@
+# Maintainer: mlm-stuff <later@mail.com>
+pkgname=heyday
+pkgver=0.1.0
+pkgrel=1
+pkgdesc="GUI for pacman/AUR rookies (Wayland/Vulkan)"
+arch=('x86_64')
+url="https://github.com/mlm-games/heyday"
+license=('GPLv3')
+depends=('polkit' 'wayland' 'vulkan-icd-loader' 'fontconfig' 'hicolor-icon-theme' 'git')
+makedepends=('rust' 'cargo' 'clang' 'pkgconf' 'git')
+source=("git+https://github.com/mlm-games/heyday.git#tag=v${pkgver}")
+sha256sums=('SKIP')
+
+build() {
+  cd "$srcdir/heyday"
+  cargo build --release -p app_shell
+}
+
+package() {
+  cd "$srcdir/heyday"
+  install -Dm755 "target/release/app_shell" "$pkgdir/usr/bin/heyday"
+  install -Dm644 packaging/desktop/heyday.desktop "$pkgdir/usr/share/applications/heyday.desktop"
+  install -Dm644 packaging/metainfo/org.heyday.Heyday.metainfo.xml "$pkgdir/usr/share/metainfo/org.heyday.Heyday.metainfo.xml"
+  install -Dm644 packaging/icons/hicolor/scalable/apps/heyday.svg "$pkgdir/usr/share/icons/hicolor/scalable/apps/heyday.svg"
+}

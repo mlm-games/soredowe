@@ -1,0 +1,338 @@
+use domain::*;
+use regex::Regex;
+use std::{
+    io::{BufRead, BufReader},
+    process::{Command, Stdio},
+};
+
+pub struct PacmanCli;
+impl PacmanCli {
+    pub fn new() -> Self {
+        Self
+    }
+}
+
+// ---------- parsing for -Ss ----------
+fn parse_pacman_search(out: &str) -> Vec<PackageSummary> {
+    let re_head =
+        Regex::new(r"^(?P<repo>\S+)/(?P<name>\S+)\s+(?P<ver>\S+)(?:\s+\[installed.*\])?\s*$")
+            .unwrap();
+    let re_inst = Regex::new(r"\[installed").unwrap();
+    let mut res = Vec::new();
+    let mut last: Option<PackageSummary> = None;
+    for line in out.lines() {
+        if let Some(c) = re_head.captures(line) {
+            let name = c["name"].to_string();
+            let ver = c["ver"].to_string();
+            let installed = re_inst.is_match(line);
+            last = Some(PackageSummary {
+                id: PackageId {
+                    name,
+                    source: Source::Repo,
+                },
+                version: ver,
+                description: String::new(),
+                installed,
+                popular: None,
+                last_updated: None,
+            });
+        } else if line.starts_with(' ') || line.starts_with('\t') {
+            if let Some(mut s) = last.take() {
+                s.description = line.trim().to_string();
+                res.push(s);
+            }
+        }
+    }
+    if let Some(s) = last.take() {
+        res.push(s);
+    }
+    res
+}
+
+// ---------- parsing for -Si ----------
+fn parse_pacman_details(out: &str, mut summary: PackageSummary) -> PackageDetails {
+    let mut depends = Vec::new();
+    let mut opt_depends = Vec::new();
+    let mut homepage = None;
+    let mut size_install = None;
+    let mut size_download = None;
+    let mut maintainer = None;
+
+    for line in out.lines().map(|l| l.trim_end()) {
+        if let Some(v) = line.strip_prefix("Depends On      :") {
+            if v.trim() != "None" {
+                depends = v.split_whitespace().map(|s| s.trim().to_string()).collect();
+            }
+        } else if let Some(v) = line.strip_prefix("Optional Deps   :") {
+            let name = v.split(':').next().unwrap_or("").trim();
+            if !name.is_empty() {
+                opt_depends.push(name.to_string());
+            }
+        } else if let Some(v) = line.strip_prefix("URL             :") {
+            homepage = Some(v.trim().to_string());
+        } else if let Some(v) = line.strip_prefix("Installed Size  :") {
+            size_install = Some(parse_size(v.trim()));
+        } else if let Some(v) = line.strip_prefix("Download Size   :") {
+            size_download = Some(parse_size(v.trim()));
+        } else if let Some(v) = line.strip_prefix("Packager        :") {
+            maintainer = Some(v.trim().to_string());
+        } else if let Some(v) = line.strip_prefix("Description     :") {
+            if summary.description.is_empty() {
+                summary.description = v.trim().to_string();
+            }
+        } else if let Some(v) = line.strip_prefix("Version         :") {
+            if summary.version.is_empty() {
+                summary.version = v.trim().to_string();
+            }
+        }
+    }
+
+    PackageDetails {
+        summary,
+        depends,
+        opt_depends,
+        homepage,
+        maintainer,
+        size_install,
+        size_download,
+    }
+}
+
+fn parse_size(s: &str) -> u64 {
+    let mut it = s.split_whitespace();
+    let n: f64 = it.next().unwrap_or("0").parse().unwrap_or(0.0);
+    match it.next().unwrap_or("B") {
+        "KiB" => (n * 1024.0) as u64,
+        "MiB" => (n * 1024.0 * 1024.0) as u64,
+        "GiB" => (n * 1024.0 * 1024.0 * 1024.0) as u64,
+        _ => n as u64,
+    }
+}
+
+impl PacmanCli {
+    fn run_stream(
+        &self,
+        mut cmd: Command,
+        sink: &ProgressSink,
+        cancel: &CancelToken,
+        stage: Stage,
+    ) -> Result<i32> {
+        let mut child = cmd
+            .stdout(Stdio::piped())
+            .stderr(Stdio::piped())
+            .spawn()
+            .map_err(|e| Error::Internal(format!("spawn: {e}")))?;
+        let out = child.stdout.take().unwrap();
+        let err = child.stderr.take().unwrap();
+
+        let jid = 0u64;
+        let tx1 = sink.clone();
+        let tx2 = sink.clone();
+
+        let stage_out = stage.clone();
+        let stage_err = stage;
+
+        let t1 = std::thread::spawn(move || {
+            for l in BufReader::new(out).lines().flatten() {
+                let _ = tx1.send(Progress {
+                    job_id: jid,
+                    stage: stage_out.clone(),
+                    percent: None,
+                    bytes: None,
+                    log: Some(l),
+                    warning: false,
+                });
+            }
+        });
+
+        let t2 = std::thread::spawn(move || {
+            for l in BufReader::new(err).lines().flatten() {
+                let _ = tx2.send(Progress {
+                    job_id: jid,
+                    stage: stage_err.clone(),
+                    percent: None,
+                    bytes: None,
+                    log: Some(l),
+                    warning: true,
+                });
+            }
+        });
+
+        loop {
+            match child.try_wait() {
+                Ok(Some(status)) => {
+                    let _ = t1.join();
+                    let _ = t2.join();
+                    return Ok(status.code().unwrap_or(-1));
+                }
+                Ok(None) => {
+                    if cancel.is_cancelled() {
+                        #[cfg(unix)]
+                        {
+                            let _ = nix::sys::signal::kill(
+                                nix::unistd::Pid::from_raw(child.id() as i32),
+                                nix::sys::signal::Signal::SIGTERM,
+                            );
+                        }
+                        let _ = child.wait();
+                        let _ = t1.join();
+                        let _ = t2.join();
+                        return Err(Error::Cancelled);
+                    }
+                    std::thread::sleep(std::time::Duration::from_millis(16));
+                }
+                Err(e) => return Err(Error::Internal(format!("wait: {e}"))),
+            }
+        }
+    }
+}
+
+impl PackageBackend for PacmanCli {
+    fn refresh(&self, sink: &ProgressSink, cancel: &CancelToken) -> Result<()> {
+        let mut cmd = Command::new("pacman");
+        cmd.args(["-Sy", "--noconfirm"]);
+        let code = self.run_stream(cmd, sink, cancel, Stage::Refreshing)?;
+        if code == 0 {
+            Ok(())
+        } else {
+            Err(Error::Alpm(format!("pacman -Sy exit {code}")))
+        }
+    }
+
+    fn search(
+        &self,
+        q: &str,
+        sink: &ProgressSink,
+        _cancel: &CancelToken,
+    ) -> Result<Vec<PackageSummary>> {
+        let q = q.trim();
+        if q.len() < 2 {
+            sink.send(Progress {
+                job_id: 0,
+                stage: Stage::Searching,
+                percent: None,
+                bytes: None,
+                log: Some("repo: query too short (<2), ignoring".into()),
+                warning: true,
+            })
+            .ok();
+            return Ok(vec![]);
+        }
+
+        sink.send(Progress {
+            job_id: 0,
+            stage: Stage::Searching,
+            percent: None,
+            bytes: None,
+            log: Some(format!("repo search: {q}")),
+            warning: false,
+        })
+        .ok();
+
+        // Try to run pacman -Ss; if the command isn’t available or returns nonzero,
+        // don’t fail the whole search — return an empty list and warn.
+        let out = match std::process::Command::new("pacman")
+            .args(["-Ss", "--color", "never", q])
+            .output()
+        {
+            Ok(o) => o,
+            Err(e) => {
+                sink.send(Progress {
+                    job_id: 0,
+                    stage: Stage::Searching,
+                    percent: None,
+                    bytes: None,
+                    log: Some(format!(
+                        "repo: pacman not available or failed to spawn: {e}"
+                    )),
+                    warning: true,
+                })
+                .ok();
+                return Ok(vec![]);
+            }
+        };
+
+        // If pacman returned a non-success code, emit the stderr as a warning and
+        // return empty results instead of Err.
+        if !out.status.success() {
+            let err = String::from_utf8_lossy(&out.stderr).trim().to_string();
+            let msg = if err.is_empty() {
+                format!(
+                    "repo: pacman -Ss failed (exit {})",
+                    out.status.code().unwrap_or(-1)
+                )
+            } else {
+                format!("repo: pacman -Ss failed: {err}")
+            };
+            sink.send(Progress {
+                job_id: 0,
+                stage: Stage::Searching,
+                percent: None,
+                bytes: None,
+                log: Some(msg),
+                warning: true,
+            })
+            .ok();
+
+            // Best effort: if stdout has data, parse it anyway; else return empty.
+            let stdout = String::from_utf8_lossy(&out.stdout);
+            if stdout.trim().is_empty() {
+                return Ok(vec![]);
+            }
+            return Ok(parse_pacman_search(&stdout));
+        }
+
+        Ok(parse_pacman_search(&String::from_utf8_lossy(&out.stdout)))
+    }
+
+    fn details(
+        &self,
+        id: &PackageId,
+        _sink: &ProgressSink,
+        _cancel: &CancelToken,
+    ) -> Result<PackageDetails> {
+        let out = Command::new("pacman")
+            .args(["-Si", &id.name])
+            .output()
+            .map_err(|e| Error::Internal(e.to_string()))?;
+        if !out.status.success() {
+            return Err(Error::Alpm("pacman -Si failed".into()));
+        }
+        let s = String::from_utf8_lossy(&out.stdout);
+        let summary = PackageSummary {
+            id: id.clone(),
+            version: String::new(),
+            description: String::new(),
+            installed: false,
+            popular: None,
+            last_updated: None,
+        };
+        Ok(parse_pacman_details(&s, summary))
+    }
+
+    fn install(&self, id: &PackageId, sink: &ProgressSink, cancel: &CancelToken) -> Result<()> {
+        let mut cmd = Command::new("pkexec");
+        cmd.args(["pacman", "-S", "--noconfirm", "--needed", &id.name]);
+        let code = self.run_stream(cmd, sink, cancel, Stage::Installing)?;
+        if code == 0 {
+            Ok(())
+        } else {
+            Err(Error::Priv(format!("install exit {code}")))
+        }
+    }
+
+    fn remove(&self, id: &PackageId, sink: &ProgressSink, cancel: &CancelToken) -> Result<()> {
+        let mut cmd = Command::new("pkexec");
+        cmd.args(["pacman", "-Rns", "--noconfirm", &id.name]);
+        let code = self.run_stream(cmd, sink, cancel, Stage::Removing)?;
+        if code == 0 {
+            Ok(())
+        } else {
+            Err(Error::Priv(format!("remove exit {code}")))
+        }
+    }
+
+    fn upgrades(&self, _sink: &ProgressSink, _cancel: &CancelToken) -> Result<Vec<PackageSummary>> {
+        Ok(vec![])
+    }
+}
