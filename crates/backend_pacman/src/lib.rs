@@ -10,6 +10,84 @@ impl PacmanCli {
     pub fn new() -> Self {
         Self
     }
+    fn search_fallback_names(&self, q: &str, sink: &ProgressSink) -> Result<Vec<PackageSummary>> {
+        let out = match std::process::Command::new("pacman")
+            .args(["-Ssq", q])
+            .output()
+        {
+            Ok(o) => o,
+            Err(e) => {
+                sink.send(Progress {
+                    job_id: 0,
+                    stage: Stage::Searching,
+                    percent: None,
+                    bytes: None,
+                    log: Some(format!("repo: fallback -Ssq spawn failed: {e}")),
+                    warning: true,
+                })
+                .ok();
+                return Ok(vec![]);
+            }
+        };
+
+        if !out.status.success() {
+            sink.send(Progress {
+                job_id: 0,
+                stage: Stage::Searching,
+                percent: None,
+                bytes: None,
+                log: Some(format!(
+                    "repo: fallback -Ssq failed (exit {}), returning no repo items",
+                    out.status.code().unwrap_or(-1)
+                )),
+                warning: true,
+            })
+            .ok();
+            return Ok(vec![]);
+        }
+
+        let names = String::from_utf8_lossy(&out.stdout)
+            .lines()
+            .map(|s| s.trim())
+            .filter(|s| !s.is_empty())
+            .take(500) // avoid huge UI floods
+            .map(|name| PackageSummary {
+                id: PackageId {
+                    name: name.to_string(),
+                    source: Source::Repo,
+                },
+                version: String::new(),
+                description: String::new(),
+                installed: false,
+                popular: None,
+                last_updated: None,
+            })
+            .collect::<Vec<_>>();
+
+        if names.is_empty() {
+            sink.send(Progress {
+                job_id: 0,
+                stage: Stage::Searching,
+                percent: None,
+                bytes: None,
+                log: Some("repo: fallback -Ssq returned 0 matches".into()),
+                warning: false,
+            })
+            .ok();
+        } else {
+            sink.send(Progress {
+                job_id: 0,
+                stage: Stage::Searching,
+                percent: None,
+                bytes: None,
+                log: Some(format!("repo: fallback -Ssq yielded {} names", names.len())),
+                warning: false,
+            })
+            .ok();
+        }
+
+        Ok(names)
+    }
 }
 
 // ---------- parsing for -Ss ----------
@@ -229,8 +307,7 @@ impl PackageBackend for PacmanCli {
         })
         .ok();
 
-        // Try to run pacman -Ss; if the command isn’t available or returns nonzero,
-        // don’t fail the whole search — return an empty list and warn.
+        // 1) Try -Ss first
         let out = match std::process::Command::new("pacman")
             .args(["-Ss", "--color", "never", q])
             .output()
@@ -243,46 +320,66 @@ impl PackageBackend for PacmanCli {
                     percent: None,
                     bytes: None,
                     log: Some(format!(
-                        "repo: pacman not available or failed to spawn: {e}"
+                        "repo: failed to spawn pacman -Ss: {e} (falling back to -Ssq)"
                     )),
                     warning: true,
                 })
                 .ok();
-                return Ok(vec![]);
+                return self.search_fallback_names(q, sink);
             }
         };
 
-        // If pacman returned a non-success code, emit the stderr as a warning and
-        // return empty results instead of Err.
-        if !out.status.success() {
-            let err = String::from_utf8_lossy(&out.stderr).trim().to_string();
-            let msg = if err.is_empty() {
-                format!(
-                    "repo: pacman -Ss failed (exit {})",
-                    out.status.code().unwrap_or(-1)
-                )
-            } else {
-                format!("repo: pacman -Ss failed: {err}")
-            };
+        let stdout = String::from_utf8_lossy(&out.stdout).to_string();
+        let stderr = String::from_utf8_lossy(&out.stderr).to_string();
+
+        if out.status.success() {
+            // Happy path
+            return Ok(parse_pacman_search(&stdout));
+        }
+
+        // 2) Status != 0. If we still got lines on stdout, parse them.
+        if !stdout.trim().is_empty() {
             sink.send(Progress {
                 job_id: 0,
                 stage: Stage::Searching,
                 percent: None,
                 bytes: None,
-                log: Some(msg),
+                log: Some(format!(
+                    "repo: pacman -Ss exit {} but stdout has results; parsing anyway",
+                    out.status.code().unwrap_or(-1)
+                )),
                 warning: true,
             })
             .ok();
-
-            // Best effort: if stdout has data, parse it anyway; else return empty.
-            let stdout = String::from_utf8_lossy(&out.stdout);
-            if stdout.trim().is_empty() {
-                return Ok(vec![]);
-            }
             return Ok(parse_pacman_search(&stdout));
         }
 
-        Ok(parse_pacman_search(&String::from_utf8_lossy(&out.stdout)))
+        // stderr-only failure: explain and fall back to -Ssq
+        let looks_like_db = stderr.contains("database")
+            || stderr.contains("failed to synchronize")
+            || stderr.contains("failed to update");
+        let msg = if looks_like_db {
+            "repo: pacman -Ss failed — repository database error. You can try Refresh (pacman -Sy) and search again."
+            .to_string()
+        } else {
+            format!(
+                "repo: pacman -Ss failed (exit {}): {}",
+                out.status.code().unwrap_or(-1),
+                stderr.trim()
+            )
+        };
+        sink.send(Progress {
+            job_id: 0,
+            stage: Stage::Searching,
+            percent: None,
+            bytes: None,
+            log: Some(msg + " (falling back to -Ssq)"),
+            warning: true,
+        })
+        .ok();
+
+        // 3) Fallback to -Ssq (names only)
+        self.search_fallback_names(q, sink)
     }
 
     fn details(
