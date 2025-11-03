@@ -2214,6 +2214,7 @@ version = "0.3.0"
 dependencies = [
  "ab_glyph",
  "fontdb",
+ "log",
  "repose-core",
  "repose-text",
  "taffy",

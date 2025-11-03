@@ -274,7 +274,7 @@ pub fn root_view(store: Rc<Store>) -> View {
                                     s.results.clone(),
                                     56.0,
                                     remember_with_key("scroll", || {
-                                        RefCell::new(repose_ui::lazy::LazyColumnState::new())
+                                        repose_ui::lazy::LazyColumnState::new()
                                     }),
                                     Modifier::new().fill_max_size(),
                                     {

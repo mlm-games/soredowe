@@ -77,23 +77,23 @@ impl Store {
             Action::SetQuery(q) => s.query = q,
             Action::Search => {
                 let q = s.query.trim().to_string();
-                // Require at least 2 characters to avoid "list everything"
-                if q.len() < 2 {
-                    // Optional: keep a friendly status line
-                    s.progress_log
-                        .push_str("Search ignored: enter at least 2 characters\n");
-                    self.state.set(s);
-                    return;
-                }
+
                 let id = self.jid();
                 let _ = self.tx_jobs.send(Job {
                     id,
                     kind: JobKind::Search,
-                    payload: JobPayload::Query(q),
+                    payload: JobPayload::Query(q.clone()),
                     created_at: std::time::SystemTime::now(),
                     cancel: CancelToken::new(),
                 });
+
+                // Clear previous results if query is empty
+                if q.is_empty() {
+                    s.results.clear();
+                    s.selected = None;
+                }
             }
+
             Action::Install(id) => {
                 let jid = self.jid();
                 let _ = self.tx_jobs.send(Job {
@@ -132,14 +132,14 @@ impl Store {
                     let q = s.query.to_lowercase();
                     let mut v = items
                         .into_iter()
-                        // Keep only items that actually match the current query
                         .filter(|x| {
-                            if q.len() < 2 {
-                                return false;
+                            if q.is_empty() {
+                                true
+                            } else {
+                                let name = x.id.name.to_lowercase();
+                                let desc = x.description.to_lowercase();
+                                name.contains(&q) || desc.contains(&q)
                             }
-                            let name = x.id.name.to_lowercase();
-                            let desc = x.description.to_lowercase();
-                            name.contains(&q) || desc.contains(&q)
                         })
                         // Existing filters
                         .filter(|x| {
