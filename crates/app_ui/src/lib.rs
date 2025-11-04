@@ -162,13 +162,9 @@ fn details_card(store: Rc<Store>) -> View {
 }
 
 pub fn root_view(store: Rc<Store>) -> View {
-    let query_live = remember_with_key("query_live", || signal(String::new()));
-    // Visual TextField; query comes from Store (see note at top)
-    let _search_tf = remember_with_key("search_tf", || {
-        Rc::new(RefCell::new(repose_ui::textfield::TextFieldState::new()))
-    });
-
     let s = store.state.get();
+
+    let current_query = s.query.clone();
 
     Surface(
         Modifier::new()
@@ -186,7 +182,7 @@ pub fn root_view(store: Rc<Store>) -> View {
                 .modifier(Modifier::new().padding(4.0)),
                 Button("Upgrades", {
                     let store = store.clone();
-                    move || store.dispatch(Action::Search) // placeholder for Upgrades flow
+                    move || store.dispatch(Action::Search)
                 })
                 .modifier(Modifier::new().padding(4.0)),
             )),
@@ -201,26 +197,32 @@ pub fn root_view(store: Rc<Store>) -> View {
                         .border(1.0, Color::from_hex("#3A3A3A"), 6.0)
                         .clip_rounded(6.0)
                         .semantics("Search field"),
-                    {
+                    Some({
                         let store = store.clone();
-                        let query_live = query_live.clone();
-                        move |text| {
-                            query_live.set(text.clone());
+                        move |text: String| {
+                            // Update store's query on every keystroke
                             store.dispatch(Action::SetQuery(text));
                         }
-                    },
+                    }),
+                    Some({
+                        let store = store.clone();
+                        move |text: String| {
+                            // On Enter: set query and search
+                            store.dispatch(Action::SetQuery(text));
+                            store.dispatch(Action::Search);
+                        }
+                    }),
                 ),
-                // Search button: ensure store gets the very latest text, then search
+                // Search button - uses query from store
                 Button("Search", {
                     let store = store.clone();
-                    let query_live = query_live.clone();
                     move || {
-                        let q = query_live.get();
-                        store.dispatch(Action::SetQuery(q));
                         store.dispatch(Action::Search);
                     }
                 })
                 .modifier(Modifier::new().padding(8.0)),
+                // Debug
+                // Text(format!("Query: '{}'", current_query)).modifier(Modifier::new().padding(4.0)),
                 // Filters
                 chip("Repo", s.filter_repo, {
                     let store = store.clone();
