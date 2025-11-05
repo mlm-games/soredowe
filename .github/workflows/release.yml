@@ -1,0 +1,441 @@
+name: Release binaries
+
+on:
+  push:
+    tags:
+      - "*.*.*"
+  workflow_dispatch:
+    inputs:
+        upload_releases:
+          description: "Upload releases"
+          required: true
+          default: true
+          type: boolean
+        mark_prerelease:
+          description: "Mark as prerelease"
+          required: true
+          default: false
+          type: boolean
+
+permissions:
+  contents: write
+
+concurrency:
+  group: release-bin-${{ github.ref }}
+  cancel-in-progress: false
+
+env:
+  BIN_NAME: heyday
+  CARGO_TERM_COLOR: always
+
+jobs:
+  prepare-version:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    outputs:
+      version_name: ${{ steps.bump.outputs.version_name }}
+      version_code: ${{ steps.bump.outputs.version_code }}
+      tag: ${{ steps.compute_tag.outputs.tag }}
+      commit_sha: ${{ steps.commit.outputs.commit_sha }}
+      release_notes: ${{ steps.notes.outputs.release-notes }}
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Bump Cargo version (patch) and set cargo-apk versionCode
+        id: bump
+        shell: bash
+        run: |
+          set -euo pipefail
+          CARGO_TOML="Cargo.toml"
+
+          # 1) read current version and bump patch
+          OLD_VERSION=$(grep -m1 '^version\s*=\s*"' "$CARGO_TOML" | sed -E 's/.*"([^"]+)".*/\1/')
+          if [[ -z "$OLD_VERSION" ]]; then
+            echo "Could not detect package.version in Cargo.toml" >&2
+            exit 1
+          fi
+          IFS='.' read -r MAJ MIN PAT <<<"$OLD_VERSION"; : "${MAJ:=0}" "${MIN:=0}" "${PAT:=0}"
+          NEW_VERSION="$MAJ.$MIN.$((PAT+1))"
+          sed -i -E "0,/^version\s*=.*/s//version = \"$NEW_VERSION\"/" "$CARGO_TOML"
+
+          # 2) compute cargo-apk versionCode from NEW_VERSION
+          IFS='.' read -r NMAJ NMIN NPAT <<<"$NEW_VERSION"
+          APK_ID=1
+          VERSION_CODE=$(( (APK_ID<<24) | (NMAJ<<16) | (NMIN<<8) | NPAT ))
+
+          # 3) ensure [package.metadata.android.sdk] exists and set version_code = VERSION_CODE
+          if grep -q '^\[package\.metadata\.android\.sdk\]' "$CARGO_TOML"; then
+            if grep -q '^version_code\s*=' "$CARGO_TOML"; then
+              sed -i -E "0,/^version_code\s*=.*/s//version_code = $VERSION_CODE/" "$CARGO_TOML"
+            else
+              awk -v vc="$VERSION_CODE" '
+                BEGIN{printed=0}
+                {print}
+                /^\[package\.metadata\.android\.sdk\]$/ && printed==0 {print "version_code = " vc; printed=1}
+              ' "$CARGO_TOML" > Cargo.toml.new && mv Cargo.toml.new "$CARGO_TOML"
+            fi
+          else
+            {
+              echo ""
+              echo "[package.metadata.android.sdk]"
+              echo "version_code = $VERSION_CODE"
+            } >> "$CARGO_TOML"
+          fi
+
+          echo "version_name=$NEW_VERSION"     >> "$GITHUB_OUTPUT"
+          echo "version_code=$VERSION_CODE"    >> "$GITHUB_OUTPUT"
+          echo "Bumped version: $OLD_VERSION -> $NEW_VERSION; version_code=$VERSION_CODE"
+
+      - name: Generate Release Notes
+        id: notes
+        uses: mlm-games/release-notes-generator@main
+        with:
+          version: ${{ steps.bump.outputs.version_name }}
+          # changelog-path: "CHANGELOG.md"
+          # version-file-path: "./fastlane/metadata/android/en-US/changelogs/${{ steps.bump.outputs.version_code }}.txt"
+          version-code: "${{ steps.bump.outputs.version_code }}"
+          format: "- {{subject}}"
+          exclude-patterns: "chore:,ci:,docs:,build:,Bump version,Merge pull request,[skip ci]"
+          auto-commit: "false"
+
+      - name: Update Cargo.lock
+        shell: bash
+        run: |
+          set -e
+          cargo update -w
+          git add Cargo.lock || true
+
+      - name: Commit changes
+        id: commit
+        shell: bash
+        run: |
+          set -e
+          git config --local user.email "github-actions[bot]@users.noreply.github.com"
+          git config --local user.name "github-actions[bot]"
+          git add Cargo.toml fastlane/metadata/android/en-US/changelogs || true
+          git commit -m "chore: bump to v${{ steps.bump.outputs.version_name }} (code ${{ steps.bump.outputs.version_code }}) [skip ci]" || true
+          git push
+          echo "commit_sha=$(git rev-parse HEAD)" >> "$GITHUB_OUTPUT"
+      
+      - name: Create and push tag
+        shell: bash
+        run: |
+          set -e
+          TAG="v${{ steps.bump.outputs.version_name }}"
+          git tag -a "$TAG" -m "Release $TAG"
+          git push origin "$TAG"
+
+  build:
+    name: Build and package (desktop)
+    needs: prepare-version
+    permissions:
+      contents: write
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - os: ubuntu-latest
+            toolchain: stable
+            target: ""
+          - os: ubuntu-latest
+            toolchain: stable
+            target: "aarch64-unknown-linux-gnu"  # Linux ARM64
+          - os: macos-latest
+            toolchain: stable
+            target: ""
+    runs-on: ${{ matrix.os }}
+    steps:
+      - uses: actions/checkout@v5
+        with:
+          ref: ${{ needs.prepare-version.outputs.commit_sha }}
+
+      - name: Install Rust
+        uses: dtolnay/rust-toolchain@stable
+        with:
+          toolchain: ${{ matrix.toolchain }}
+
+      - name: Add Rust target (when cross-compiling)
+        if: matrix.target != ''
+        run: rustup target add ${{ matrix.target }}
+
+      # Host Linux deps (x86_64)
+      - name: Install Linux dependencies (host)
+        if: runner.os == 'Linux' && matrix.target == ''
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y \
+            libasound2-dev libudev-dev pkg-config \
+            libsuil-dev libsratom-dev \
+            libx11-dev libxi-dev libxinerama-dev libxrandr-dev libxcursor-dev
+
+      # Cross Linux deps (aarch64)
+      - name: Install Linux cross dependencies (aarch64)
+        if: runner.os == 'Linux' && matrix.target == 'aarch64-unknown-linux-gnu'
+        shell: bash
+        run: |
+          set -eux
+          sudo dpkg --add-architecture arm64
+
+          # ubuntu APT ARM packages location is diff.
+          cat <<'EOF' | sudo tee /etc/apt/sources.list.d/ubuntu-arm64.sources
+          Types: deb
+          URIs: http://ports.ubuntu.com/ubuntu-ports
+          Suites: noble noble-updates noble-backports noble-security
+          Components: main restricted universe multiverse
+          Architectures: arm64
+          EOF
+          sudo sed -Ei 's|^Types: deb|Types: deb\nArchitectures: amd64|' \
+              /etc/apt/sources.list.d/ubuntu.sources
+
+          sudo apt-get update
+          sudo apt-get install -y \
+            gcc-aarch64-linux-gnu pkg-config \
+            libasound2-dev:arm64 libudev-dev:arm64 \
+            libsuil-dev:arm64 libsratom-dev:arm64 libserd-dev:arm64 libsord-dev:arm64 \
+            libx11-dev:arm64 libxi-dev:arm64 libxinerama-dev:arm64 libxrandr-dev:arm64 libxcursor-dev:arm64
+
+          sudo apt-get install -y pkgconf
+          echo 'PKG_CONFIG=aarch64-linux-gnu-pkg-config' >> "$GITHUB_ENV"
+          echo 'PKG_CONFIG_ALLOW_CROSS=1'                >> "$GITHUB_ENV"
+          echo 'PKG_CONFIG_SYSROOT_DIR=/'               >> "$GITHUB_ENV"
+          echo 'PKG_CONFIG_LIBDIR=/usr/lib/aarch64-linux-gnu/pkgconfig:/usr/share/pkgconfig' >> "$GITHUB_ENV"
+          echo 'PKG_CONFIG_PATH=/usr/lib/aarch64-linux-gnu/pkgconfig:/usr/share/pkgconfig'   >> "$GITHUB_ENV"
+
+      - name: Install macOS dependencies
+        if: runner.os == 'macOS'
+        run: |
+          brew update
+          brew install pkg-config lilv suil sratom
+      - name: Configure pkg-config (macOS)
+        if: runner.os == 'macOS'
+        run: |
+          echo "PKG_CONFIG_PATH=/opt/homebrew/lib/pkgconfig:/usr/local/lib/pkgconfig:${PKG_CONFIG_PATH}" >> $GITHUB_ENV
+
+      # - name: Set up MSYS2 and install Windows dependencies
+      #   if: runner.os == 'Windows'
+      #   uses: msys2/setup-msys2@v2
+      #   with:
+      #     update: true
+      #     msystem: MINGW64
+      #     install: >-
+      #       base-devel
+      #       mingw-w64-x86_64-pkgconf
+      #       mingw-w64-x86_64-lilv
+      #       mingw-w64-x86_64-sratom
+      #       mingw-w64-x86_64-sord
+      #       mingw-w64-x86_64-serd
+      #       mingw-w64-x86_64-suil
+      # - name: Configure pkg-config and PATH (Windows)
+      #   if: runner.os == 'Windows'
+      #   shell: pwsh
+      #   run: |
+      #     Add-Content -Path $env:GITHUB_ENV -Value "PKG_CONFIG=C:\msys64\mingw64\bin\pkg-config.exe"
+      #     Add-Content -Path $env:GITHUB_ENV -Value "PKG_CONFIG_PATH=C:\msys64\mingw64\lib\pkgconfig"
+      #     Add-Content -Path $env:GITHUB_PATH -Value "C:\msys64\mingw64\bin"
+
+      - uses: Swatinem/rust-cache@v2
+
+      - name: Determine target triple
+        id: triple
+        shell: bash
+        run: |
+          T="${{ matrix.target }}"
+          if [[ -z "$T" ]]; then
+            T="$(rustc -vV | sed -n 's/^host: //p')"
+          fi
+          echo "target=$T" >> "$GITHUB_OUTPUT"
+
+      - name: Build (release)
+        run: cargo build --release --locked --target ${{ steps.triple.outputs.target }}
+
+      - name: Package (tar.gz) [Linux/macOS]
+        if: runner.os != 'Windows'
+        shell: bash
+        env:
+          TARGET: ${{ steps.triple.outputs.target }}
+          TAG: ${{ needs.prepare-version.outputs.version_name }}
+        run: |
+          set -euxo pipefail
+          VER="${TAG#v}"
+          OUTDIR="dist/${BIN_NAME}-${VER}-${TARGET}"
+          mkdir -p "$OUTDIR"
+          cp "target/${TARGET}/release/${BIN_NAME}" "$OUTDIR/"
+          for f in README* LICENSE* CHANGELOG*; do [ -e "$f" ] && cp "$f" "$OUTDIR/" || true; done
+          tar -C "dist" -czf "${OUTDIR}.tar.gz" "$(basename "$OUTDIR")"
+
+      # - name: Package (zip) [Windows]
+      #   if: runner.os == 'Windows'
+      #   shell: pwsh
+      #   env:
+      #     TAG: ${{ needs.prepare-version.outputs.version_name }}
+      #   run: |
+      #     $ErrorActionPreference = "Stop"
+      #     $ver = $env:TAG.Substring(1)
+      #     $host = & rustc -vV | Select-String '^host:' | ForEach-Object { $_.ToString().Split()[1] }
+      #     $out = "dist/$($env:BIN_NAME)-$ver-$host"
+      #     New-Item -ItemType Directory -Path $out -Force | Out-Null
+      #     Copy-Item "target\release\$($env:BIN_NAME).exe" "$out\"
+      #     foreach ($f in @("README*", "LICENSE*", "CHANGELOG*")) {
+      #       Get-ChildItem $f -ErrorAction SilentlyContinue | ForEach-Object { Copy-Item $_.FullName $out\ }
+      #     }
+      #     Compress-Archive -Path "$out\*" -DestinationPath "$out.zip"
+
+      - name: Upload build artifacts
+        uses: actions/upload-artifact@v4
+        with:
+          name: dist-${{ matrix.os }}${{ matrix.target && format('-{0}', matrix.target) || '' }}
+          path: |
+            dist/**/*.tar.gz
+            dist/**/*.zip
+
+  build-android:
+    name: Build Android APK (aarch64)
+    needs: prepare-version
+    runs-on: ubuntu-latest
+    env:
+      APP_NAME: "Heyday"
+      APP_SLUG: "heyday"
+      ANDROID_API: "35"
+      ANDROID_BUILD_TOOLS: "35.0.0"
+      ANDROID_NDK_VERSION: "27.0.12077973"
+      RUST_TOOLCHAIN: "1.90.0"
+      ANDROID_TARGET: "aarch64-linux-android"
+      LILV_TERMUX_LIB: ${{ github.workspace }}/third_party/android/termux/aarch64/sysroot/data/data/com.termux/files/usr/lib
+    steps:
+      - uses: actions/checkout@v5
+        with:
+          ref: ${{ needs.prepare-version.outputs.commit_sha }}
+      
+      - name: Verify Termux libraries presence
+        shell: bash
+        run: |
+          set -euo pipefail
+          test -d "$LILV_TERMUX_LIB" || { echo "Missing Termux libs at $LILV_TERMUX_LIB"; exit 1; }
+          if [ ! -f "$LILV_TERMUX_LIB/pkgconfig/lilv-0.pc" ]; then
+            echo "Missing $LILV_TERMUX_LIB/pkgconfig/lilv-0.pc (ensure termux libs are committed or provided)"; exit 1;
+          fi
+      - name: Set up Android SDK/NDK
+        uses: android-actions/setup-android@v3
+      - name: Install Android platforms and NDK
+        shell: bash
+        run: |
+          sdkmanager --install \
+            "platform-tools" \
+            "platforms;android-${ANDROID_API}" \
+            "build-tools;${ANDROID_BUILD_TOOLS}" \
+            "ndk;${ANDROID_NDK_VERSION}"
+      - name: Install Rust (host) + Android target
+        uses: dtolnay/rust-toolchain@stable
+        with:
+          toolchain: ${{ env.RUST_TOOLCHAIN }}
+          targets: ${{ env.ANDROID_TARGET }}
+      - name: Install cargo-apk
+        shell: bash
+        run: cargo install cargo-apk --locked
+
+      - name: Prepare release keystore
+        shell: bash
+        env:
+          KS_B64: ${{ secrets.ANDROID_KEYSTORE_JKS_B64 }}
+          KS_ASC: ${{ secrets.ANDROID_KEYSTORE_ASC }}
+          KS_PASSPHRASE: ${{ secrets.ANDROID_KEYSTORE_PASSPHRASE }}
+          KS_ALIAS: ${{ secrets.ANDROID_KEY_ALIAS }}
+          KS_PASS: ${{ secrets.ANDROID_KEYSTORE_PASSWORD }}
+        run: |
+          set -euo pipefail
+          if [[ -z "${KS_B64:-}" && -z "${KS_ASC:-}" ]]; then
+            echo "No keystore secret provided; building unsigned APK."
+            exit 0
+          fi
+
+          if [[ -n "${KS_B64:-}" ]]; then
+            printf '%s' "$KS_B64" | base64 -d > release.keystore
+          else
+            if [[ -z "${KS_PASSPHRASE:-}" ]]; then
+              echo "Missing ANDROID_KEYSTORE_PASSPHRASE for ASC" >&2; exit 1
+            fi
+            printf '%s' "$KS_ASC" > release.keystore.asc
+            gpg --batch --yes --pinentry-mode loopback \
+                --passphrase "$KS_PASSPHRASE" \
+                --decrypt release.keystore.asc > release.keystore
+            rm -f release.keystore.asc
+          fi
+
+          if [[ -z "${KS_PASS:-}" ]]; then
+            echo "ANDROID_KEYSTORE_PASSWORD must be set when providing a keystore" >&2
+            exit 1
+          fi
+
+          if [[ -n "${KS_ALIAS:-}" ]]; then
+            keytool -importkeystore -noprompt \
+              -srckeystore  release.keystore     -srcstorepass  "$KS_PASS" -srcalias  "$KS_ALIAS" \
+              -destkeystore release.single.jks   -deststorepass "$KS_PASS" -destalias "$KS_ALIAS" -destkeypass "$KS_PASS" \
+              -deststoretype JKS
+            mv release.single.jks release.keystore
+          fi
+
+          echo "CARGO_APK_RELEASE_KEYSTORE=$PWD/release.keystore" >> "$GITHUB_ENV"
+          echo "CARGO_APK_RELEASE_KEYSTORE_PASSWORD=$KS_PASS"      >> "$GITHUB_ENV"
+
+      - name: Build Android APK (release, aarch64)
+        shell: bash
+        env:
+          TAG: ${{ needs.prepare-version.outputs.version_name }} 
+        run: |
+          set -euo pipefail
+          cargo apk build --release --target $ANDROID_TARGET --lib
+          OUT_DIR="target/release/apk"
+          APK_SRC=$(ls -1t "$OUT_DIR"/*.apk | head -n1)
+          VER="${TAG#v}"
+          mkdir -p dist
+          cp "$APK_SRC" "dist/${{ env.APP_SLUG }}-${VER}-arm64-v8a.apk"
+          ls -la dist
+
+      - name: Upload Android artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: dist-android
+          path: dist/*.apk
+
+  release:
+    name: Create GitHub Release
+    needs:
+      - prepare-version
+      - build
+      - build-android
+    runs-on: ubuntu-latest
+    steps:
+      - name: Download artifacts
+        uses: actions/download-artifact@v4
+        with:
+          path: dist
+
+      - name: Generate checksums
+        shell: bash
+        run: |
+          set -euo pipefail
+          cd dist
+          # Flatten any nested artifact dirs
+          find . -type f \( -name "*.tar.gz" -o -name "*.zip" -o -name "*.apk" \) -print0 | xargs -0 -I{} sh -c 'sha256sum "{}"'
+          find . -type f \( -name "*.tar.gz" -o -name "*.zip" -o -name "*.apk" \) -print0 | xargs -0 sha256sum > SHA256SUMS.txt
+          echo "==== SHA256SUMS.txt ===="
+          cat SHA256SUMS.txt
+
+      - name: Create/Update Release
+        if: ${{ github.event_name == 'push' || (github.event_name == 'workflow_dispatch' && inputs.upload_releases == true) }}
+        uses: softprops/action-gh-release@v2
+        with:
+          tag_name: ${{ needs.prepare-version.outputs.version_name }}
+          name: v${{ needs.prepare-version.outputs.version_name }}
+          generate_release_notes: true
+          target_commitish: ${{ needs.prepare-version.outputs.commit_sha }}
+          prerelease: ${{ inputs.mark_prerelease }}
+          body: ${{ needs.prepare-version.outputs.release_notes }}
+          files: |
+            dist/**/*.tar.gz
+            dist/**/*.zip
+            dist/**/*.apk
+            dist/SHA256SUMS.txt
