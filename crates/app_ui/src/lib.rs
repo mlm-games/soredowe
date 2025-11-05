@@ -119,7 +119,7 @@ fn details_card(store: Rc<Store>) -> View {
                 .clip_rounded(10.0),
         )
         .child((
-            Row(Modifier::new()).child((
+            Row(Modifier::new().align_self_center()).child((
                 TextSize(Text(pkg.id.name.clone()), 18.0),
                 if pkg.id.source == Source::Aur {
                     badge("AUR", Color::from_hex("#6B46C1"))
@@ -146,11 +146,13 @@ fn details_card(store: Rc<Store>) -> View {
                         }
                     }
                 }),
+                Spacer(),
                 Button("Clear selection", {
                     let store = store.clone();
                     move || store.dispatch(Action::ClearSelection)
-                })
-                .modifier(Modifier::new().padding(6.0)),
+                }),
+                Spacer(),
+                Spacer(),
             )),
         ))
     } else {
@@ -220,7 +222,7 @@ pub fn root_view(store: Rc<Store>) -> View {
                         store.dispatch(Action::Search);
                     }
                 })
-                .modifier(Modifier::new().padding(8.0)),
+                .modifier(Modifier::new().padding(4.0)),
                 // Debug
                 // Text(format!("Query: '{}'", current_query)).modifier(Modifier::new().padding(4.0)),
                 // Filters
@@ -278,7 +280,7 @@ pub fn root_view(store: Rc<Store>) -> View {
                                     remember_with_key("scroll", || {
                                         repose_ui::lazy::LazyColumnState::new()
                                     }),
-                                    Modifier::new().fill_max_size(),
+                                    Modifier::new().fill_max_width().height(700.0),
                                     {
                                         let store = store.clone();
                                         move |pkg: PackageSummary, _| {
@@ -326,8 +328,8 @@ pub fn root_view(store: Rc<Store>) -> View {
                 Box(Modifier::new()
                     .fill_max_size()
                     .size(0.0, 180.0)
-                    .background(Color::from_hex("#101010"))
-                    .border(1.0, Color::from_hex("#2A2A2A"), 6.0)
+                    .background(Color::TRANSPARENT) //Color::from_hex("#101010"))
+                    // .border(1.0, Color::from_hex("#2A2A2A"), 6.0)
                     .clip_rounded(6.0))
                 .child(
                     TextColor(
