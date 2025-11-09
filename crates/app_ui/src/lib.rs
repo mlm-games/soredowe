@@ -1,7 +1,10 @@
 use crate::state::{Action, SortMode, Store};
 use domain::{PackageSummary, Source};
 use repose_core::*;
-use repose_ui::*;
+use repose_ui::{
+    lazy::{LazyColumn, LazyColumnState},
+    *,
+};
 use std::{cell::RefCell, rc::Rc};
 
 pub mod state;
@@ -58,7 +61,6 @@ fn pkg_row(store: Rc<Store>, pkg: PackageSummary, selected: bool) -> View {
             move |_| store.dispatch(Action::Select(id.clone()))
         }))
     .child((
-        // Left col: name + meta
         Column(Modifier::new().flex_grow(1.0)).child((
             Row(Modifier::new()).child((
                 Text(pkg.id.name.clone()).modifier(Modifier::new().padding(2.0)),
@@ -73,13 +75,11 @@ fn pkg_row(store: Rc<Store>, pkg: PackageSummary, selected: bool) -> View {
                     Box(Modifier::new())
                 },
             )),
-            TextColor(
-                TextSize(Text(pkg.description.clone()), 12.0),
-                Color::from_hex("#AAAAAA"),
-            )
-            .modifier(Modifier::new().padding(2.0)),
+            Text(pkg.description.clone())
+                .size(12.0)
+                .color(Color::from_hex("#AAAAAA"))
+                .modifier(Modifier::new().padding(2.0)),
         )),
-        // Right col: actions
         Row(Modifier::new()).child(
             Button(if pkg.installed { "Remove" } else { "Install" }, {
                 let store = store.clone();
@@ -132,9 +132,13 @@ fn details_card(store: Rc<Store>) -> View {
                     Box(Modifier::new())
                 },
             )),
-            TextColor(Text(pkg.description.clone()), Color::from_hex("#BBBBBB"))
+            Text(pkg.description.clone())
+                .max_lines(10)
+                .overflow_clip()
+                .color(Color::from_hex("#BBBBBB"))
                 .modifier(Modifier::new().padding(6.0)),
             Row(Modifier::new().padding(8.0)).child((
+                Spacer(),
                 Button(if pkg.installed { "Remove" } else { "Install" }, {
                     let store = store.clone();
                     let id = pkg.id.clone();
@@ -151,7 +155,6 @@ fn details_card(store: Rc<Store>) -> View {
                     let store = store.clone();
                     move || store.dispatch(Action::ClearSelection)
                 }),
-                Spacer(),
                 Spacer(),
             )),
         ))
@@ -254,11 +257,8 @@ pub fn root_view(store: Rc<Store>) -> View {
                     }),
                 )),
             )),
-            // Body: responsive two-pane layout
-            // Use Grid(6) and span (4|2) or (6) if narrow.
             {
-                // crude breakpoint using item width heuristic
-                let wide = true; // keep simple; grid will still fill width
+                let wide = true;
                 let left_span = if wide { 4 } else { 6 };
                 let right_span = if wide { 2 } else { 6 };
 
@@ -274,12 +274,10 @@ pub fn root_view(store: Rc<Store>) -> View {
                                     Color::from_hex("#888888"),
                                 ))
                             } else {
-                                repose_ui::lazy::LazyColumn(
+                                LazyColumn(
                                     s.results.clone(),
                                     56.0,
-                                    remember_with_key("scroll", || {
-                                        repose_ui::lazy::LazyColumnState::new()
-                                    }),
+                                    remember_with_key("scroll", || LazyColumnState::new()),
                                     Modifier::new().fill_max_width().height(700.0),
                                     {
                                         let store = store.clone();

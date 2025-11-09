@@ -1161,6 +1161,8 @@ dependencies = [
  "num-traits",
  "png",
  "tiff",
+ "zune-core",
+ "zune-jpeg",
 ]
 
 [[package]]
@@ -2148,7 +2150,7 @@ checksum = "19b30a45b0cd0bcca8037f3d0dc3421eaf95327a17cad11964fb8179b4fc4832"
 
 [[package]]
 name = "repose-core"
-version = "0.4.0"
+version = "0.5.0"
 dependencies = [
  "bitflags 2.10.0",
  "log",
@@ -2161,7 +2163,7 @@ dependencies = [
 
 [[package]]
 name = "repose-devtools"
-version = "0.4.0"
+version = "0.5.0"
 dependencies = [
  "log",
  "repose-core",
@@ -2169,7 +2171,7 @@ dependencies = [
 
 [[package]]
 name = "repose-platform"
-version = "0.4.0"
+version = "0.5.0"
 dependencies = [
  "anyhow",
  "arboard",
@@ -2183,13 +2185,14 @@ dependencies = [
 
 [[package]]
 name = "repose-render-wgpu"
-version = "0.4.0"
+version = "0.5.0"
 dependencies = [
  "ab_glyph",
  "anyhow",
  "bytemuck",
  "cosmic-text",
  "fontdb",
+ "image",
  "log",
  "pollster",
  "repose-core",
@@ -2200,17 +2203,18 @@ dependencies = [
 
 [[package]]
 name = "repose-text"
-version = "0.4.0"
+version = "0.5.0"
 dependencies = [
  "ahash",
  "cosmic-text",
  "fontdb",
  "once_cell",
+ "unicode-segmentation",
 ]
 
 [[package]]
 name = "repose-ui"
-version = "0.4.0"
+version = "0.5.0"
 dependencies = [
  "ab_glyph",
  "fontdb",
