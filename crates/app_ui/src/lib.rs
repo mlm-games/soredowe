@@ -187,7 +187,7 @@ pub fn root_view(store: Rc<Store>) -> View {
                 .modifier(Modifier::new().padding(4.0)),
                 Button("Upgrades", {
                     let store = store.clone();
-                    move || store.dispatch(Action::Search)
+                    move || store.dispatch(Action::Upgrades)
                 })
                 .modifier(Modifier::new().padding(4.0)),
             )),

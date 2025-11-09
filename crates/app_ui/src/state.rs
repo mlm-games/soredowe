@@ -35,6 +35,7 @@ pub struct AppState {
 pub enum Action {
     SetQuery(String),
     Search,
+    Upgrades,
     Install(PackageId),
     Remove(PackageId),
     Progress(Progress),
@@ -92,6 +93,16 @@ impl Store {
                     s.results.clear();
                     s.selected = None;
                 }
+            }
+            Action::Upgrades => {
+                let id = self.jid();
+                let _ = self.tx_jobs.send(Job {
+                    id,
+                    kind: JobKind::Upgrades,
+                    payload: JobPayload::None,
+                    created_at: std::time::SystemTime::now(),
+                    cancel: CancelToken::new(),
+                });
             }
 
             Action::Install(id) => {
@@ -169,7 +180,33 @@ impl Store {
                         }
                     }
                 }
-                Event::Details { .. } | Event::Upgrades { .. } => { /* not shown in v1 */ }
+                Event::Upgrades { items } => {
+                    // Show upgrades in the same left pane, honoring filters/sort
+                    let mut v = items
+                        .into_iter()
+                        .filter(|x| {
+                            (s.filter_repo && x.id.source == Source::Repo)
+                                || (s.filter_aur && x.id.source == Source::Aur)
+                        })
+                        .filter(|x| {
+                            if s.filter_installed {
+                                x.installed
+                            } else {
+                                true
+                            }
+                        })
+                        .collect::<Vec<_>>();
+                    match s.sort {
+                        SortMode::NameAsc => v.sort_by(|a, b| a.id.name.cmp(&b.id.name)),
+                        SortMode::NameDesc => v.sort_by(|a, b| b.id.name.cmp(&a.id.name)),
+                        SortMode::Popularity => {
+                            v.sort_by(|a, b| b.popular.unwrap_or(0).cmp(&a.popular.unwrap_or(0)))
+                        }
+                    }
+                    s.results = v;
+                    s.selected = None;
+                }
+                Event::Details { .. } => { /* not shown in v1 */ }
             },
             Action::ClearError => s.error = None,
             Action::Select(id) => s.selected = Some(id),

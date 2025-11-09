@@ -1,6 +1,7 @@
 use domain::*;
 use serde::Deserialize;
 use std::{
+    collections::HashSet,
     fs,
     io::Write,
     path::PathBuf,
@@ -74,6 +75,20 @@ fn validate_pkg_path(p: &PathBuf) -> bool {
     p.is_file() && p.extension().and_then(|e| e.to_str()) == Some("zst")
 }
 
+fn installed_set() -> HashSet<String> {
+    let out = Command::new("pacman").args(["-Qq"]).output().ok();
+    let mut set = HashSet::new();
+    if let Some(out) = out {
+        for line in String::from_utf8_lossy(&out.stdout).lines() {
+            let n = line.trim();
+            if !n.is_empty() {
+                set.insert(n.to_string());
+            }
+        }
+    }
+    set
+}
+
 impl PackageBackend for AurBackend {
     fn refresh(&self, _sink: &ProgressSink, _cancel: &CancelToken) -> Result<()> {
         Ok(())
@@ -98,6 +113,7 @@ impl PackageBackend for AurBackend {
             .ok();
             return Ok(vec![]);
         }
+
         sink.send(Progress {
             job_id: 0,
             stage: Stage::Searching,
@@ -108,8 +124,10 @@ impl PackageBackend for AurBackend {
         })
         .ok();
 
+        // Be explicit about name+description search to match user expectations
+        // RPC v5 docs note 2+ chars and rate limiting; keep the guard above.
         let url = format!(
-            "https://aur.archlinux.org/rpc/?v=5&type=search&arg={}",
+            "https://aur.archlinux.org/rpc/?v=5&type=search&by=name-desc&arg={}",
             urlencoding::encode(q)
         );
         let mut resp = ureq::get(&url)
@@ -119,17 +137,20 @@ impl PackageBackend for AurBackend {
             .body_mut()
             .read_json()
             .map_err(|e| Error::Network(e.to_string()))?;
+
+        let installed = installed_set();
+
         Ok(resp
             .results
             .into_iter()
             .map(|p| PackageSummary {
                 id: PackageId {
-                    name: p.name,
+                    name: p.name.clone(),
                     source: Source::Aur,
                 },
                 version: p.version,
                 description: p.description.unwrap_or_default(),
-                installed: false,
+                installed: installed.contains(&p.name),
                 popular: p.votes,
                 last_updated: ts(p.last_modified),
             })
@@ -158,14 +179,17 @@ impl PackageBackend for AurBackend {
             .into_iter()
             .next()
             .ok_or_else(|| Error::Aur("not found".into()))?;
+
+        let installed = installed_set();
+
         let summary = PackageSummary {
             id: PackageId {
-                name: p.name,
+                name: p.name.clone(),
                 source: Source::Aur,
             },
             version: p.version,
             description: p.description.unwrap_or_default(),
-            installed: false,
+            installed: installed.contains(&p.name),
             popular: p.votes,
             last_updated: ts(p.last_modified),
         };
@@ -194,10 +218,11 @@ impl PackageBackend for AurBackend {
         let work = tempfile::tempdir().map_err(|e| Error::Internal(e.to_string()))?;
         let dir = work.path().join(&id.name);
 
-        // clone
+        // Shallow clone to reduce bandwidth
         let status = Command::new("git")
             .args([
                 "clone",
+                "--depth=1",
                 &format!("https://aur.archlinux.org/{}.git", id.name),
                 dir.to_str().unwrap(),
             ])
@@ -207,7 +232,7 @@ impl PackageBackend for AurBackend {
             return Err(Error::Aur("git clone failed".into()));
         }
 
-        // Generate .SRCINFO without shell redirection
+        // Generate .SRCINFO (no shell redirection)
         let out = Command::new("makepkg")
             .arg("--printsrcinfo")
             .current_dir(&dir)
@@ -221,7 +246,7 @@ impl PackageBackend for AurBackend {
         f.write_all(&out.stdout)
             .map_err(|e| Error::Internal(e.to_string()))?;
 
-        // Best-effort repo deps preinstall (makepkg -s will also handle them)
+        // Preinstall repo deps best-effort
         let srcinfo = String::from_utf8_lossy(&out.stdout);
         let deps = parse_srcinfo_deps(&srcinfo);
         if !deps.is_empty() {
@@ -231,7 +256,7 @@ impl PackageBackend for AurBackend {
                 .status();
         }
 
-        // build (no -i)
+        // Build package (no -i here)
         let status = Command::new("makepkg")
             .args(["-s", "--noconfirm"])
             .current_dir(&dir)
@@ -241,7 +266,7 @@ impl PackageBackend for AurBackend {
             return Err(Error::Aur("makepkg failed".into()));
         }
 
-        // find artifact and install via pkexec -U
+        // Install artifact via pacman -U
         let pkg =
             find_built_pkg(&dir).ok_or_else(|| Error::Aur("no built package found".into()))?;
         if !validate_pkg_path(&pkg) {
@@ -271,6 +296,6 @@ impl PackageBackend for AurBackend {
     }
 
     fn upgrades(&self, _sink: &ProgressSink, _cancel: &CancelToken) -> Result<Vec<PackageSummary>> {
-        Ok(vec![])
+        Ok(vec![]) // repo upgrades are implemented, would not be preferable to update apps already in repo with aur versions
     }
 }

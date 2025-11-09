@@ -10,6 +10,27 @@ impl PacmanCli {
     pub fn new() -> Self {
         Self
     }
+
+    fn parse_upgrades(out: &str) -> Vec<PackageSummary> {
+        // Lines look like: "pkgname oldver -> newver"
+        let re = Regex::new(r"^(?P<name>\S+)\s+\S+\s+->\s+(?P<new>\S+)").unwrap();
+        out.lines()
+            .filter_map(|l| {
+                re.captures(l).map(|c| PackageSummary {
+                    id: PackageId {
+                        name: c["name"].to_string(),
+                        source: Source::Repo,
+                    },
+                    version: c["new"].to_string(),
+                    description: String::new(),
+                    installed: true,
+                    popular: None,
+                    last_updated: None,
+                })
+            })
+            .collect()
+    }
+
     fn search_fallback_names(&self, q: &str, sink: &ProgressSink) -> Result<Vec<PackageSummary>> {
         let out = match std::process::Command::new("pacman")
             .args(["-Ssq", q])
@@ -429,7 +450,31 @@ impl PackageBackend for PacmanCli {
         }
     }
 
-    fn upgrades(&self, _sink: &ProgressSink, _cancel: &CancelToken) -> Result<Vec<PackageSummary>> {
-        Ok(vec![])
+    fn upgrades(&self, sink: &ProgressSink, _cancel: &CancelToken) -> Result<Vec<PackageSummary>> {
+        // pacman -Qu does not require root and consults sync dbs for available updates
+        let out = Command::new("pacman")
+            .args(["-Qu", "--color", "never"])
+            .output()
+            .map_err(|e| Error::Internal(e.to_string()))?;
+
+        if !out.status.success() && out.stdout.is_empty() {
+            // Non-zero with no stdout usually means "no upgrades" or an error; treat as empty list.
+            sink.send(Progress {
+                job_id: 0,
+                stage: Stage::Verifying,
+                percent: None,
+                bytes: None,
+                log: Some(format!(
+                    "repo: pacman -Qu exit {} (treating as no upgrades)",
+                    out.status.code().unwrap_or(-1)
+                )),
+                warning: true,
+            })
+            .ok();
+            return Ok(vec![]);
+        }
+
+        let stdout = String::from_utf8_lossy(&out.stdout);
+        Ok(Self::parse_upgrades(&stdout))
     }
 }

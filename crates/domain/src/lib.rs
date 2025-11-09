@@ -306,8 +306,36 @@ impl Executor {
                             }
                         }
                         JobKind::Upgrades => {
-                            let _g = TXN_MUTEX.lock();
-                            let items = repo.upgrades(&sink, &cancel)?;
+                            // Collect from both repo and AUR, but don’t fail the whole job
+                            let mut items: Vec<PackageSummary> = Vec::new();
+                            match repo.upgrades(&sink, &cancel) {
+                                Ok(mut v) => items.append(&mut v),
+                                Err(e) => {
+                                    let _ = sink.send(Progress {
+                                        job_id: job.id,
+                                        stage: Stage::Verifying,
+                                        percent: None,
+                                        bytes: None,
+                                        log: Some(format!("repo upgrades failed: {e}")),
+                                        warning: true,
+                                    });
+                                }
+                            }
+                            match aur.upgrades(&sink, &cancel) {
+                                Ok(mut v) => items.append(&mut v),
+                                Err(e) => {
+                                    let _ = sink.send(Progress {
+                                        job_id: job.id,
+                                        stage: Stage::Verifying,
+                                        percent: None,
+                                        bytes: None,
+                                        log: Some(format!("AUR upgrades failed: {e}")),
+                                        warning: true,
+                                    });
+                                }
+                            }
+                            // Sort A–Z for stability; UI can re-sort
+                            items.sort_by(|a, b| a.id.name.cmp(&b.id.name));
                             tx_evt
                                 .send(Event::Upgrades { items })
                                 .map_err(|e| Error::Internal(e.to_string()))?;
