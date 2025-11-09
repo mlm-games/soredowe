@@ -234,6 +234,29 @@ impl Store {
                     s.selected = None;
                 }
                 Event::Details { .. } => { /* not shown in v1 */ }
+                Event::SystemChanged => {
+                    // Decide what to refresh based on current UI mode.
+                    if s.in_upgrades_view {
+                        let id = self.jid();
+                        let _ = self.tx_jobs.send(Job {
+                            id,
+                            kind: JobKind::Upgrades,
+                            payload: JobPayload::None,
+                            created_at: std::time::SystemTime::now(),
+                            cancel: CancelToken::new(),
+                        });
+                    } else if !s.query.trim().is_empty() {
+                        let id = self.jid();
+                        let q = s.query.clone();
+                        let _ = self.tx_jobs.send(Job {
+                            id,
+                            kind: JobKind::Search,
+                            payload: JobPayload::Query(q),
+                            created_at: std::time::SystemTime::now(),
+                            cancel: CancelToken::new(),
+                        });
+                    }
+                }
             },
             Action::ClearError => s.error = None,
             Action::Select(id) => s.selected = Some(id),

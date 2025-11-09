@@ -79,6 +79,8 @@ pub enum Event {
     Upgrades {
         items: Vec<PackageSummary>,
     },
+    /// Sent when the system package state likely changed (install/remove/upgrade).
+    SystemChanged,
 }
 
 #[derive(thiserror::Error, Debug)]
@@ -364,6 +366,17 @@ impl Executor {
                 };
 
                 let res = run_job();
+                if res.is_ok() {
+                    match job.kind {
+                        JobKind::Install
+                        | JobKind::Remove
+                        | JobKind::Upgrade
+                        | JobKind::UpgradeAll => {
+                            let _ = tx_evt.send(Event::SystemChanged);
+                        }
+                        _ => {}
+                    }
+                }
                 send(Progress {
                     job_id: job.id,
                     stage: if res.is_ok() {
