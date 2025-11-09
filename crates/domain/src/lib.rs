@@ -130,6 +130,8 @@ pub trait PackageBackend: Send + Sync {
     fn install(&self, id: &PackageId, sink: &ProgressSink, cancel: &CancelToken) -> Result<()>;
     fn remove(&self, id: &PackageId, sink: &ProgressSink, cancel: &CancelToken) -> Result<()>;
     fn upgrades(&self, sink: &ProgressSink, cancel: &CancelToken) -> Result<Vec<PackageSummary>>;
+    fn upgrade(&self, id: &PackageId, sink: &ProgressSink, cancel: &CancelToken) -> Result<()>;
+    fn upgrade_all(&self, sink: &ProgressSink, cancel: &CancelToken) -> Result<()>;
 }
 
 #[derive(Clone, Copy, Debug)]
@@ -140,6 +142,8 @@ pub enum JobKind {
     Install,
     Remove,
     Upgrades,
+    Upgrade,
+    UpgradeAll,
 }
 
 #[derive(Clone, Debug)]
@@ -339,6 +343,21 @@ impl Executor {
                             tx_evt
                                 .send(Event::Upgrades { items })
                                 .map_err(|e| Error::Internal(e.to_string()))?;
+                            Ok(())
+                        }
+                        JobKind::Upgrade => {
+                            let _g = TXN_MUTEX.lock();
+                            if let JobPayload::Package(id) = &job.payload {
+                                pick(&job.payload).upgrade(id, &sink, &cancel)
+                            } else {
+                                Ok(())
+                            }
+                        }
+                        JobKind::UpgradeAll => {
+                            let _g = TXN_MUTEX.lock();
+                            // Minimal: perform repo full system upgrade; AUR can be expanded later.
+                            repo.upgrade_all(&sink, &cancel)?;
+                            // If you want AUR mass-upgrade later, we can iterate aur.upgrades() and call aur.upgrade(..).
                             Ok(())
                         }
                     }

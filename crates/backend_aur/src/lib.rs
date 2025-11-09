@@ -298,4 +298,13 @@ impl PackageBackend for AurBackend {
     fn upgrades(&self, _sink: &ProgressSink, _cancel: &CancelToken) -> Result<Vec<PackageSummary>> {
         Ok(vec![]) // repo upgrades are implemented, would not be preferable to update apps already in repo with aur versions
     }
+    fn upgrade(&self, id: &PackageId, sink: &ProgressSink, cancel: &CancelToken) -> Result<()> {
+        // For AUR, “upgrade” is just “rebuild & install latest”.
+        self.install(id, sink, cancel)
+    }
+
+    fn upgrade_all(&self, _sink: &ProgressSink, _cancel: &CancelToken) -> Result<()> {
+        // Minimal first step: do nothing. We can iterate available AUR upgrades later.
+        Ok(())
+    }
 }

@@ -29,6 +29,7 @@ pub struct AppState {
     pub progress_log: String,
     pub error: Option<String>,
     pub log_expanded: bool,
+    pub in_upgrades_view: bool,
 }
 
 #[derive(Clone, Debug)]
@@ -36,6 +37,8 @@ pub enum Action {
     SetQuery(String),
     Search,
     Upgrades,
+    UpgradeAll,
+    Upgrade(PackageId),
     Install(PackageId),
     Remove(PackageId),
     Progress(Progress),
@@ -77,6 +80,7 @@ impl Store {
         match a {
             Action::SetQuery(q) => s.query = q,
             Action::Search => {
+                s.in_upgrades_view = false;
                 let q = s.query.trim().to_string();
 
                 let id = self.jid();
@@ -95,11 +99,32 @@ impl Store {
                 }
             }
             Action::Upgrades => {
+                s.in_upgrades_view = true;
                 let id = self.jid();
                 let _ = self.tx_jobs.send(Job {
                     id,
                     kind: JobKind::Upgrades,
                     payload: JobPayload::None,
+                    created_at: std::time::SystemTime::now(),
+                    cancel: CancelToken::new(),
+                });
+            }
+            Action::UpgradeAll => {
+                let id = self.jid();
+                let _ = self.tx_jobs.send(Job {
+                    id,
+                    kind: JobKind::UpgradeAll,
+                    payload: JobPayload::None,
+                    created_at: std::time::SystemTime::now(),
+                    cancel: CancelToken::new(),
+                });
+            }
+            Action::Upgrade(id) => {
+                let jid = self.jid();
+                let _ = self.tx_jobs.send(Job {
+                    id: jid,
+                    kind: JobKind::Upgrade,
+                    payload: JobPayload::Package(id),
                     created_at: std::time::SystemTime::now(),
                     cancel: CancelToken::new(),
                 });
@@ -140,6 +165,7 @@ impl Store {
             }
             Action::Event(e) => match e {
                 Event::SearchResults { items, .. } => {
+                    s.in_upgrades_view = false;
                     let q = s.query.to_lowercase();
                     let mut v = items
                         .into_iter()
@@ -181,6 +207,7 @@ impl Store {
                     }
                 }
                 Event::Upgrades { items } => {
+                    s.in_upgrades_view = true;
                     // Show upgrades in the same left pane, honoring filters/sort
                     let mut v = items
                         .into_iter()

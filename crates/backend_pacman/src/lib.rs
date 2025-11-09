@@ -477,4 +477,28 @@ impl PackageBackend for PacmanCli {
         let stdout = String::from_utf8_lossy(&out.stdout);
         Ok(Self::parse_upgrades(&stdout))
     }
+
+    fn upgrade(&self, id: &PackageId, sink: &ProgressSink, cancel: &CancelToken) -> Result<()> {
+        // Upgrades a single repo package to the latest available version.
+        let mut cmd = Command::new("pkexec");
+        cmd.args(["pacman", "-S", "--noconfirm", "--needed", &id.name]);
+        let code = self.run_stream(cmd, sink, cancel, Stage::Installing)?;
+        if code == 0 {
+            Ok(())
+        } else {
+            Err(Error::Priv(format!("upgrade exit {code}")))
+        }
+    }
+
+    fn upgrade_all(&self, sink: &ProgressSink, cancel: &CancelToken) -> Result<()> {
+        // Full system upgrade, as pacman documents (-Syu).
+        let mut cmd = Command::new("pkexec");
+        cmd.args(["pacman", "-Syu", "--noconfirm"]);
+        let code = self.run_stream(cmd, sink, cancel, Stage::Installing)?;
+        if code == 0 {
+            Ok(())
+        } else {
+            Err(Error::Priv(format!("upgrade-all exit {code}")))
+        }
+    }
 }

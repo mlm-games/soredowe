@@ -41,7 +41,7 @@ fn separator() -> View {
 }
 
 // Package row
-fn pkg_row(store: Rc<Store>, pkg: PackageSummary, selected: bool) -> View {
+fn pkg_row(store: Rc<Store>, pkg: PackageSummary, selected: bool, upgrades_mode: bool) -> View {
     let is_aur = pkg.id.source == Source::Aur;
     Row(Modifier::new()
         .padding(10.0)
@@ -80,7 +80,13 @@ fn pkg_row(store: Rc<Store>, pkg: PackageSummary, selected: bool) -> View {
                 .color(Color::from_hex("#AAAAAA"))
                 .modifier(Modifier::new().padding(2.0)),
         )),
-        Row(Modifier::new()).child(
+        if upgrades_mode {
+            Button("Upgrade", {
+                let store = store.clone();
+                let id = pkg.id.clone();
+                move || store.dispatch(Action::Upgrade(id.clone()))
+            })
+        } else {
             Button(if pkg.installed { "Remove" } else { "Install" }, {
                 let store = store.clone();
                 let id = pkg.id.clone();
@@ -92,8 +98,7 @@ fn pkg_row(store: Rc<Store>, pkg: PackageSummary, selected: bool) -> View {
                     }
                 }
             })
-            .modifier(Modifier::new().padding(6.0)),
-        ),
+        },
     ))
 }
 
@@ -139,17 +144,25 @@ fn details_card(store: Rc<Store>) -> View {
                 .modifier(Modifier::new().padding(6.0)),
             Row(Modifier::new().padding(8.0)).child((
                 Spacer(),
-                Button(if pkg.installed { "Remove" } else { "Install" }, {
-                    let store = store.clone();
-                    let id = pkg.id.clone();
-                    move || {
-                        if pkg.installed {
-                            store.dispatch(Action::Remove(id.clone()))
-                        } else {
-                            store.dispatch(Action::Install(id.clone()))
+                if s.in_upgrades_view {
+                    Button("Upgrade", {
+                        let store = store.clone();
+                        let id = pkg.id.clone();
+                        move || store.dispatch(Action::Upgrade(id.clone()))
+                    })
+                } else {
+                    Button(if pkg.installed { "Remove" } else { "Install" }, {
+                        let store = store.clone();
+                        let id = pkg.id.clone();
+                        move || {
+                            if pkg.installed {
+                                store.dispatch(Action::Remove(id.clone()))
+                            } else {
+                                store.dispatch(Action::Install(id.clone()))
+                            }
                         }
-                    }
-                }),
+                    })
+                },
                 Spacer(),
                 Button("Clear selection", {
                     let store = store.clone();
@@ -180,6 +193,15 @@ pub fn root_view(store: Rc<Store>) -> View {
             Row(Modifier::new().padding(8.0)).child((
                 TextSize(Text("Heyday"), 20.0).modifier(Modifier::new().padding(8.0)),
                 Spacer(),
+                if s.in_upgrades_view && !s.results.is_empty() {
+                    Button("Upgrade all", {
+                        let store = store.clone();
+                        move || store.dispatch(Action::UpgradeAll)
+                    })
+                    .modifier(Modifier::new().padding(4.0))
+                } else {
+                    Box(Modifier::new())
+                },
                 Button("Refresh", {
                     let store = store.clone();
                     move || store.dispatch(Action::Search)
@@ -281,12 +303,13 @@ pub fn root_view(store: Rc<Store>) -> View {
                                     Modifier::new().fill_max_width().height(700.0),
                                     {
                                         let store = store.clone();
+                                        let upgrades_mode = s.in_upgrades_view;
                                         move |pkg: PackageSummary, _| {
                                             let selected = s
                                                 .selected
                                                 .as_ref()
                                                 .map_or(false, |id| *id == pkg.id);
-                                            pkg_row(store.clone(), pkg, selected)
+                                            pkg_row(store.clone(), pkg, selected, upgrades_mode)
                                         }
                                     },
                                 )
