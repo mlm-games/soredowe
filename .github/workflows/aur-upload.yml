@@ -22,7 +22,7 @@ jobs:
         shell: bash
         run: |
           set -euo pipefail
-          tag="v${{ inputs.version_name }}"
+          tag="${{ inputs.version_name }}"
           mkdir -p downloads
           wget -O downloads/soredowe-${{ inputs.version_name }}-x86_64-unknown-linux-gnu.tar.gz \
             "https://github.com/mlm-games/soredowe/releases/download/${tag}/soredowe-${{ inputs.version_name }}-x86_64-unknown-linux-gnu.tar.gz"
