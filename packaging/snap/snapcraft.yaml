@@ -1,0 +1,49 @@
+name: soredowe
+base: core22
+version: '0.2.5'
+summary: GUI for pacman and AUR written in Rust.
+description: |
+  Soredowe lets you search, view, and install packages from Arch repositories and the AUR with a friendly, fast UI written in Rust.
+icon: snap/gui/icon.png
+
+grade: stable
+confinement: strict
+
+architectures:
+  - build-on: amd64
+  - build-on: arm64
+
+apps:
+  soredowe:
+    command: soredowe
+    extensions: [gnome]
+    plugs:
+      - home
+      - removable-media
+      - network
+      - opengl
+      - x11
+      - wayland
+      - desktop
+      - desktop-legacy
+      - unity7
+
+parts:
+  soredowe:
+    plugin: dump
+    source: ./builds/
+    source-type: local
+    stage-packages:
+      - libglu1-mesa
+      - libxcursor1
+      - libxinerama1
+      - libxrandr2
+      - libxi6
+      - libpulse0
+    override-build: |
+      craftctl default
+      chmod +x "$CRAFT_PART_INSTALL/soredowe"
+
+layout:
+  /usr/share/soredowe:
+    bind: $SNAP/usr/share/soredowe

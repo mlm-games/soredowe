@@ -1,0 +1,35 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<component type="desktop-application">
+  <id>io.github.mlm_games.soredowe</id>
+  <metadata_license>CC0-1.0</metadata_license>
+  <project_license>GPL-3.0-or-later</project_license>
+  <name>Soredowe</name>
+  <summary>GUI for pacman and AUR</summary>
+  <description>
+    <p>Soredowe lets you search, view, and install packages from Arch repositories and the AUR with a friendly, fast UI written in Rust.</p>
+  </description>
+  <developer id="io.github.mlm_games">
+    <name>MLM Games</name>
+  </developer>
+  <launchable type="desktop-id">io.github.mlm_games.soredowe.desktop</launchable>
+  <url type="homepage">https://github.com/mlm-games/soredowe</url>
+  <provides>
+    <binary>soredowe</binary>
+  </provides>
+  <categories>
+    <category>System</category>
+    <category>PackageManager</category>
+  </categories>
+  <screenshots>
+    <screenshot type="default">
+      <caption>Search and install packages</caption>
+    </screenshot>
+  </screenshots>
+  <releases>
+    <release version="0.1.0" date="2025-11-02"/>
+  </releases>
+  <branding>
+    <color type="primary" scheme_preference="light">#faa298</color>
+    <color type="primary" scheme_preference="dark">#7f2c22</color>
+  </branding>
+</component>
