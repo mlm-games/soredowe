@@ -3,7 +3,7 @@ name: Release binaries
 on:
   push:
     tags:
-      - "*.*.*"
+      - "v*.*.*"
   workflow_dispatch:
     inputs:
       upload_releases:
@@ -67,7 +67,7 @@ jobs:
           if [[ "${{ github.event_name }}" == "push" ]]; then
             # Expect refs/tags/vX.Y.Z
             ref_name="${GITHUB_REF_NAME}"
-            if [[ ! "$ref_name" =~ ^[0-9]+\.[0-9]+\.[0-9]+$ ]]; then
+            if [[ ! "$ref_name" =~ ^v[0-9]+\.[0-9]+\.[0-9]+$ ]]; then
               echo "Invalid tag name: $ref_name (expected vX.Y.Z)" >&2
               exit 1
             fi
@@ -76,7 +76,7 @@ jobs:
             commit_sha="$(git rev-parse HEAD)"
           else
             # workflow_dispatch: compute next patch version and tag it
-            latest="$(git tag -l '*.*.*' | sort -V | tail -n1)"
+            latest="$(git tag -l 'v*.*.*' | sort -V | tail -n1)"
             if [[ -z "$latest" ]]; then
               # initial version if none exists
               maj=0; min=1; pat=0
@@ -96,7 +96,7 @@ jobs:
             git commit -m "Update cargo.lock"
             git push 
             version="${maj}.${min}.${pat}"
-            tag="${version}"
+            tag="v${version}"
             commit_sha="$(git rev-parse HEAD)"
 
             # Create and push the tag
@@ -175,8 +175,6 @@ jobs:
           EOF
           sudo sed -Ei 's|^Types: deb|Types: deb\nArchitectures: amd64|' /etc/apt/sources.list.d/ubuntu.sources
           sudo apt update
-          sudo apt install -y binutils-aarch64-linux-gnu gcc-aarch64-linux-gnu
-          sudo apt install -y libc6-dev-arm64-cross
           sudo apt install -y \
             gcc-aarch64-linux-gnu pkg-config
           sudo apt install -y pkgconf
@@ -209,7 +207,7 @@ jobs:
           TAG: ${{ needs.prepare-version.outputs.version_name }}
         run: |
           set -euxo pipefail
-          VER="${TAG}"
+          VER="${TAG}"  # already without 'v'
           OUTDIR="dist/${BIN_NAME}-${VER}-${TARGET}"
           mkdir -p "$OUTDIR"
           # Exception: Rename the built app_shell binary to soredowe in the archive
@@ -379,7 +377,7 @@ jobs:
         uses: softprops/action-gh-release@v2
         with:
           tag_name: ${{ needs.prepare-version.outputs.tag }}
-          name: v${{ needs.prepare-version.outputs.tag }}
+          name: ${{ needs.prepare-version.outputs.tag }}
           generate_release_notes: true
           target_commitish: ${{ needs.prepare-version.outputs.commit_sha }}
           prerelease: ${{ github.event_name == 'workflow_dispatch' && inputs.mark_prerelease }}
