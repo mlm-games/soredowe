@@ -13,6 +13,7 @@ pub mod state;
 fn badge(text: &str, bg: Color) -> View {
     TextColor(Text(text.to_string()), Color::from_hex("#EEEEEE")).modifier(
         Modifier::new()
+            .padding(2.0)
             .background(bg)
             .clip_rounded(4.0)
             .padding(6.0),
@@ -78,7 +79,8 @@ fn pkg_row(store: Rc<Store>, pkg: PackageSummary, selected: bool, upgrades_mode:
             Text(pkg.description.clone())
                 .size(12.0)
                 .color(Color::from_hex("#AAAAAA"))
-                .modifier(Modifier::new().padding(2.0)),
+                .overflow_clip()
+                .modifier(Modifier::new().padding(2.0).flex_grow(1.0).max_width(500.0)),
         )),
         if upgrades_mode {
             Button("Upgrade", {
@@ -263,6 +265,7 @@ pub fn root_view(store: Rc<Store>) -> View {
                     let store = store.clone();
                     move || store.dispatch(Action::ToggleFilterInstalled)
                 }),
+                Spacer(),
                 // Sort
                 Row(Modifier::new().padding(6.0)).child((
                     Button("A–Z", {
