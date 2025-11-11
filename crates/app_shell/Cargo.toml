@@ -4,11 +4,9 @@ version = "0.1.0"
 edition = "2024"
 
 [dependencies]
-repose-platform = { path = "../../../repose/crates/repose-platform", features = [
-    "desktop",
-] }
-repose-ui = { path = "../../../repose/crates/repose-ui" }
-repose-core = { path = "../../../repose/crates/repose-core" }
+repose-platform = { version = "*", features = ["desktop"] }
+repose-ui = "*"
+repose-core = "*"
 crossbeam-channel = "0.5.15"
 anyhow = "1"
 env_logger = "0.11"

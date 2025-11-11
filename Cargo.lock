@@ -150,9 +150,9 @@ dependencies = [
  "domain",
  "env_logger",
  "notify",
- "repose-core",
+ "repose-core 0.6.2 (registry+https://github.com/rust-lang/crates.io-index)",
  "repose-platform",
- "repose-ui",
+ "repose-ui 0.6.2 (registry+https://github.com/rust-lang/crates.io-index)",
 ]
 
 [[package]]
@@ -161,8 +161,8 @@ version = "0.1.0"
 dependencies = [
  "crossbeam-channel",
  "domain",
- "repose-core",
- "repose-ui",
+ "repose-core 0.6.2",
+ "repose-ui 0.6.2",
 ]
 
 [[package]]
@@ -2236,7 +2236,22 @@ checksum = "19b30a45b0cd0bcca8037f3d0dc3421eaf95327a17cad11964fb8179b4fc4832"
 
 [[package]]
 name = "repose-core"
-version = "0.6.1"
+version = "0.6.2"
+dependencies = [
+ "bitflags 2.10.0",
+ "log",
+ "parking_lot",
+ "slotmap",
+ "smallvec",
+ "taffy",
+ "thiserror 2.0.17",
+]
+
+[[package]]
+name = "repose-core"
+version = "0.6.2"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "0488a7ea49b2051a244e3a1bd5eaf8f5d07214f7b91b38acd10f480d44bbd681"
 dependencies = [
  "bitflags 2.10.0",
  "log",
@@ -2249,29 +2264,35 @@ dependencies = [
 
 [[package]]
 name = "repose-devtools"
-version = "0.6.1"
+version = "0.6.2"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "af25351a5d2dc93b77458989d229534f9822682a9eab093a8aaeeacf57f5fb5b"
 dependencies = [
  "log",
- "repose-core",
+ "repose-core 0.6.2 (registry+https://github.com/rust-lang/crates.io-index)",
 ]
 
 [[package]]
 name = "repose-platform"
-version = "0.6.1"
+version = "0.6.2"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "b7ce134e2006b91c70bcce31775f1eb4b0896bac2a393cde800e1cc5f006d587"
 dependencies = [
  "anyhow",
  "arboard",
  "log",
- "repose-core",
+ "repose-core 0.6.2 (registry+https://github.com/rust-lang/crates.io-index)",
  "repose-devtools",
  "repose-render-wgpu",
- "repose-ui",
+ "repose-ui 0.6.2 (registry+https://github.com/rust-lang/crates.io-index)",
  "winit",
 ]
 
 [[package]]
 name = "repose-render-wgpu"
-version = "0.6.1"
+version = "0.6.2"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "2d22dde5a5cfd77ec15a0a13f7e5f2c601de55601635d5539a8067d4467393be"
 dependencies = [
  "ab_glyph",
  "anyhow",
@@ -2281,15 +2302,28 @@ dependencies = [
  "image",
  "log",
  "pollster",
- "repose-core",
- "repose-text",
+ "repose-core 0.6.2 (registry+https://github.com/rust-lang/crates.io-index)",
+ "repose-text 0.6.2 (registry+https://github.com/rust-lang/crates.io-index)",
  "wgpu",
  "winit",
 ]
 
 [[package]]
 name = "repose-text"
-version = "0.6.1"
+version = "0.6.2"
+dependencies = [
+ "ahash",
+ "cosmic-text",
+ "fontdb",
+ "once_cell",
+ "unicode-segmentation",
+]
+
+[[package]]
+name = "repose-text"
+version = "0.6.2"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "18684ae992c0b57bcb4c1ab6009b02166b0dbe2f99cbbf01f41d983d4cc0f8b7"
 dependencies = [
  "ahash",
  "cosmic-text",
@@ -2300,13 +2334,28 @@ dependencies = [
 
 [[package]]
 name = "repose-ui"
-version = "0.6.1"
+version = "0.6.2"
 dependencies = [
  "ab_glyph",
  "fontdb",
  "log",
- "repose-core",
- "repose-text",
+ "repose-core 0.6.2",
+ "repose-text 0.6.2",
+ "taffy",
+ "unicode-segmentation",
+]
+
+[[package]]
+name = "repose-ui"
+version = "0.6.2"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "d9a699f5dc6adf92230a8bf45b8330cc750b7a2eb3a24b5978577a671635ad1f"
+dependencies = [
+ "ab_glyph",
+ "fontdb",
+ "log",
+ "repose-core 0.6.2 (registry+https://github.com/rust-lang/crates.io-index)",
+ "repose-text 0.6.2 (registry+https://github.com/rust-lang/crates.io-index)",
  "taffy",
  "unicode-segmentation",
 ]
