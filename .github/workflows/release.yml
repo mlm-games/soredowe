@@ -6,16 +6,16 @@ on:
       - "*.*.*"
   workflow_dispatch:
     inputs:
-        upload_releases:
-          description: "Upload releases"
-          required: true
-          default: true
-          type: boolean
-        mark_prerelease:
-          description: "Mark as prerelease"
-          required: true
-          default: false
-          type: boolean
+      upload_releases:
+        description: "Upload releases"
+        required: true
+        default: true
+        type: boolean
+      mark_prerelease:
+        description: "Mark as prerelease"
+        required: true
+        default: false
+        type: boolean
 
 permissions:
   contents: write
@@ -34,99 +34,78 @@ jobs:
     permissions:
       contents: write
     outputs:
-      version_name: ${{ steps.bump.outputs.version_name }}
-      version_code: ${{ steps.bump.outputs.version_code }}
-      tag: ${{ steps.compute_tag.outputs.tag }}
-      commit_sha: ${{ steps.commit.outputs.commit_sha }}
+      version_name: ${{ steps.meta.outputs.version_name }}
+      tag: ${{ steps.meta.outputs.tag }}
+      commit_sha: ${{ steps.meta.outputs.commit_sha }}
       release_notes: ${{ steps.notes.outputs.release-notes }}
     steps:
       - uses: actions/checkout@v4
         with:
           fetch-depth: 0
 
-      - name: Bump Cargo version (patch) and set cargo-apk versionCode
-        id: bump
+      # Determine version/tag based on event:
+      # - push on tag vX.Y.Z: use that tag/version
+      # - workflow_dispatch: compute next patch from latest v*.*.* and create a new tag
+      - name: Set version/tag metadata
+        id: meta
         shell: bash
         run: |
           set -euo pipefail
-          CARGO_TOML="Cargo.toml"
 
-          # 1) read current version and bump patch
-          OLD_VERSION=$(grep -m1 '^version\s*=\s*"' "$CARGO_TOML" | sed -E 's/.*"([^"]+)".*/\1/')
-          if [[ -z "$OLD_VERSION" ]]; then
-            echo "Could not detect package.version in Cargo.toml" >&2
-            exit 1
-          fi
-          IFS='.' read -r MAJ MIN PAT <<<"$OLD_VERSION"; : "${MAJ:=0}" "${MIN:=0}" "${PAT:=0}"
-          NEW_VERSION="$MAJ.$MIN.$((PAT+1))"
-          sed -i -E "0,/^version\s*=.*/s//version = \"$NEW_VERSION\"/" "$CARGO_TOML"
-
-          # 2) compute cargo-apk versionCode from NEW_VERSION
-          IFS='.' read -r NMAJ NMIN NPAT <<<"$NEW_VERSION"
-          APK_ID=1
-          VERSION_CODE=$(( (APK_ID<<24) | (NMAJ<<16) | (NMIN<<8) | NPAT ))
-
-          # 3) ensure [package.metadata.android.sdk] exists and set version_code = VERSION_CODE
-          if grep -q '^\[package\.metadata\.android\.sdk\]' "$CARGO_TOML"; then
-            if grep -q '^version_code\s*=' "$CARGO_TOML"; then
-              sed -i -E "0,/^version_code\s*=.*/s//version_code = $VERSION_CODE/" "$CARGO_TOML"
-            else
-              awk -v vc="$VERSION_CODE" '
-                BEGIN{printed=0}
-                {print}
-                /^\[package\.metadata\.android\.sdk\]$/ && printed==0 {print "version_code = " vc; printed=1}
-              ' "$CARGO_TOML" > Cargo.toml.new && mv Cargo.toml.new "$CARGO_TOML"
+          if [[ "${{ github.event_name }}" == "push" ]]; then
+            # Expect refs/tags/vX.Y.Z
+            ref_name="${GITHUB_REF_NAME}"
+            if [[ ! "$ref_name" =~ ^[0-9]+\.[0-9]+\.[0-9]+$ ]]; then
+              echo "Invalid tag name: $ref_name (expected vX.Y.Z)" >&2
+              exit 1
             fi
+            version="${ref_name#v}"
+            tag="$ref_name"
+            commit_sha="$(git rev-parse HEAD)"
           else
-            {
-              echo ""
-              echo "[package.metadata.android.sdk]"
-              echo "version_code = $VERSION_CODE"
-            } >> "$CARGO_TOML"
+            # workflow_dispatch: compute next patch version and tag it
+            latest="$(git tag -l '*.*.*' | sort -V | tail -n1)"
+            if [[ -z "$latest" ]]; then
+              # initial version if none exists
+              maj=0; min=1; pat=0
+            else
+              latest_no_v="${latest#v}"
+              IFS='.' read -r maj min pat <<<"$latest_no_v"
+              : "${maj:=0}" "${min:=1}" "${pat:=0}"
+              pat=$((pat + 1))
+            fi
+
+            git config --local user.email "github-actions[bot]@users.noreply.github.com"
+            git config --local user.name "github-actions[bot]"
+
+
+            cargo update -w
+            git add . || true
+            git commit -m "Update cargo.lock"
+            git push 
+            version="${maj}.${min}.${pat}"
+            tag="${version}"
+            commit_sha="$(git rev-parse HEAD)"
+
+            # Create and push the tag
+            git tag -a "$tag" -m "Release $tag"
+            git push origin "$tag"
           fi
 
-          echo "version_name=$NEW_VERSION"     >> "$GITHUB_OUTPUT"
-          echo "version_code=$VERSION_CODE"    >> "$GITHUB_OUTPUT"
-          echo "Bumped version: $OLD_VERSION -> $NEW_VERSION; version_code=$VERSION_CODE"
+          {
+            echo "version_name=$version"
+            echo "tag=$tag"
+            echo "commit_sha=$commit_sha"
+          } >> "$GITHUB_OUTPUT"
 
       - name: Generate Release Notes
         id: notes
         uses: mlm-games/release-notes-generator@main
         with:
-          version: ${{ steps.bump.outputs.version_name }}
-          # changelog-path: "CHANGELOG.md"
-          # version-file-path: "./fastlane/metadata/android/en-US/changelogs/${{ steps.bump.outputs.version_code }}.txt"
-          version-code: "${{ steps.bump.outputs.version_code }}"
+          version: ${{ steps.meta.outputs.version_name }}
           format: "- {{subject}}"
           exclude-patterns: "chore:,ci:,docs:,build:,Bump version,Merge pull request,[skip ci]"
           auto-commit: "false"
-
-      - name: Update Cargo.lock
-        shell: bash
-        run: |
-          set -e
-          cargo update -w
-          git add Cargo.lock || true
-
-      - name: Commit changes
-        id: commit
-        shell: bash
-        run: |
-          set -e
-          git config --local user.email "github-actions[bot]@users.noreply.github.com"
-          git config --local user.name "github-actions[bot]"
-          git add Cargo.toml fastlane/metadata/android/en-US/changelogs || true
-          git commit -m "chore: bump to v${{ steps.bump.outputs.version_name }} (code ${{ steps.bump.outputs.version_code }}) [skip ci]" || true
-          git push
-          echo "commit_sha=$(git rev-parse HEAD)" >> "$GITHUB_OUTPUT"
-      
-      - name: Create and push tag
-        shell: bash
-        run: |
-          set -e
-          TAG="v${{ steps.bump.outputs.version_name }}"
-          git tag -a "$TAG" -m "Release $TAG"
-          git push origin "$TAG"
 
   build:
     name: Build and package (desktop)
@@ -175,8 +154,6 @@ jobs:
         run: |
           set -eux
           sudo dpkg --add-architecture arm64
-
-          # ubuntu APT ARM packages location is diff.
           cat <<'EOF' | sudo tee /etc/apt/sources.list.d/ubuntu-arm64.sources
           Types: deb
           URIs: http://ports.ubuntu.com/ubuntu-ports
@@ -184,51 +161,16 @@ jobs:
           Components: main restricted universe multiverse
           Architectures: arm64
           EOF
-          sudo sed -Ei 's|^Types: deb|Types: deb\nArchitectures: amd64|' \
-              /etc/apt/sources.list.d/ubuntu.sources
-
+          sudo sed -Ei 's|^Types: deb|Types: deb\nArchitectures: amd64|' /etc/apt/sources.list.d/ubuntu.sources
           sudo apt update
           sudo apt install -y \
-            gcc-aarch64-linux-gnu pkg-config \
-
+            gcc-aarch64-linux-gnu pkg-config
           sudo apt install -y pkgconf
           echo 'PKG_CONFIG=aarch64-linux-gnu-pkg-config' >> "$GITHUB_ENV"
           echo 'PKG_CONFIG_ALLOW_CROSS=1'                >> "$GITHUB_ENV"
           echo 'PKG_CONFIG_SYSROOT_DIR=/'               >> "$GITHUB_ENV"
           echo 'PKG_CONFIG_LIBDIR=/usr/lib/aarch64-linux-gnu/pkgconfig:/usr/share/pkgconfig' >> "$GITHUB_ENV"
           echo 'PKG_CONFIG_PATH=/usr/lib/aarch64-linux-gnu/pkgconfig:/usr/share/pkgconfig'   >> "$GITHUB_ENV"
-
-      - name: Install macOS dependencies
-        if: runner.os == 'macOS'
-        run: |
-          brew update
-          brew install pkg-config lilv suil sratom
-      - name: Configure pkg-config (macOS)
-        if: runner.os == 'macOS'
-        run: |
-          echo "PKG_CONFIG_PATH=/opt/homebrew/lib/pkgconfig:/usr/local/lib/pkgconfig:${PKG_CONFIG_PATH}" >> $GITHUB_ENV
-
-      # - name: Set up MSYS2 and install Windows dependencies
-      #   if: runner.os == 'Windows'
-      #   uses: msys2/setup-msys2@v2
-      #   with:
-      #     update: true
-      #     msystem: MINGW64
-      #     install: >-
-      #       base-devel
-      #       mingw-w64-x86_64-pkgconf
-      #       mingw-w64-x86_64-lilv
-      #       mingw-w64-x86_64-sratom
-      #       mingw-w64-x86_64-sord
-      #       mingw-w64-x86_64-serd
-      #       mingw-w64-x86_64-suil
-      # - name: Configure pkg-config and PATH (Windows)
-      #   if: runner.os == 'Windows'
-      #   shell: pwsh
-      #   run: |
-      #     Add-Content -Path $env:GITHUB_ENV -Value "PKG_CONFIG=C:\msys64\mingw64\bin\pkg-config.exe"
-      #     Add-Content -Path $env:GITHUB_ENV -Value "PKG_CONFIG_PATH=C:\msys64\mingw64\lib\pkgconfig"
-      #     Add-Content -Path $env:GITHUB_PATH -Value "C:\msys64\mingw64\bin"
 
       - uses: Swatinem/rust-cache@v2
 
@@ -243,7 +185,7 @@ jobs:
           echo "target=$T" >> "$GITHUB_OUTPUT"
 
       - name: Build (release)
-        run: cargo build --release --locked --target ${{ steps.triple.outputs.target }}
+        run: cargo build --release --locked --target ${{ steps.triple.outputs.target }} -p app_shell
 
       - name: Package (tar.gz) [Linux/macOS]
         if: runner.os != 'Windows'
@@ -253,10 +195,11 @@ jobs:
           TAG: ${{ needs.prepare-version.outputs.version_name }}
         run: |
           set -euxo pipefail
-          VER="${TAG#v}"
+          VER="${TAG}"
           OUTDIR="dist/${BIN_NAME}-${VER}-${TARGET}"
           mkdir -p "$OUTDIR"
-          cp "target/${TARGET}/release/${BIN_NAME}" "$OUTDIR/"
+          # Exception: Rename the built app_shell binary to soredowe in the archive
+          cp "target/${TARGET}/release/app_shell" "$OUTDIR/${BIN_NAME}"
           for f in README* LICENSE* CHANGELOG*; do [ -e "$f" ] && cp "$f" "$OUTDIR/" || true; done
           tar -C "dist" -czf "${OUTDIR}.tar.gz" "$(basename "$OUTDIR")"
 
@@ -399,7 +342,6 @@ jobs:
     needs:
       - prepare-version
       - build
-      # - build-android
     runs-on: ubuntu-latest
     steps:
       - name: Download artifacts
@@ -422,11 +364,11 @@ jobs:
         if: ${{ github.event_name == 'push' || (github.event_name == 'workflow_dispatch' && inputs.upload_releases == true) }}
         uses: softprops/action-gh-release@v2
         with:
-          tag_name: ${{ needs.prepare-version.outputs.version_name }}
-          name: v${{ needs.prepare-version.outputs.version_name }}
+          tag_name: ${{ needs.prepare-version.outputs.tag }}
+          name: v${{ needs.prepare-version.outputs.tag }}
           generate_release_notes: true
           target_commitish: ${{ needs.prepare-version.outputs.commit_sha }}
-          prerelease: ${{ inputs.mark_prerelease }}
+          prerelease: ${{ github.event_name == 'workflow_dispatch' && inputs.mark_prerelease }}
           body: ${{ needs.prepare-version.outputs.release_notes }}
           files: |
             dist/**/*.tar.gz
