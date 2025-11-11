@@ -89,11 +89,11 @@ jobs:
           source_x86_64=("${_pkgname}-${pkgver}-x86_64-unknown-linux-gnu.tar.gz::https://github.com/mlm-games/soredowe/releases/download/v${pkgver}/${_pkgname}-${pkgver}-x86_64-unknown-linux-gnu.tar.gz")
           source_aarch64=("${_pkgname}-${pkgver}-aarch64-unknown-linux-gnu.tar.gz::https://github.com/mlm-games/soredowe/releases/download/v${pkgver}/${_pkgname}-${pkgver}-aarch64-unknown-linux-gnu.tar.gz")
           # Icon
-          source=("icon.png::https://raw.githubusercontent.com/mlm-games/soredowe/refs/heads/master/src/icon.png")
+          source=("icon.svg::https://raw.githubusercontent.com/mlm-games/soredowe/refs/heads/main/packaging/icons/hicolor/scalable/apps/soredowe.svg")
 
           sha256sums_x86_64=('{{X64_HASH}}')
           sha256sums_aarch64=('{{ARM64_HASH}}')
-          sha256sums=('SKIP') # for icon.png
+          sha256sums=('SKIP') # for icon.svg
 
           package() {
             local target
@@ -119,7 +119,7 @@ jobs:
           DESKTOP_EOF
 
             # Icon
-            install -Dm644 "${srcdir}/icon.png" "${pkgdir}/usr/share/pixmaps/${_pkgname}.png"
+            install -Dm644 "${srcdir}/icon.svg" "${pkgdir}/usr/share/pixmaps/${_pkgname}.svg"
           }
           EOF
 
