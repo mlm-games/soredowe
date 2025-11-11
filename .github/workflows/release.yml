@@ -93,7 +93,7 @@ jobs:
 
             cargo update -w
             git add . || true
-            git commit -m "Update cargo.lock"
+            git commit -m "Update cargo ver with lock"
             git push 
             version="${maj}.${min}.${pat}"
             tag="v${version}"
