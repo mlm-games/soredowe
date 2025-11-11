@@ -11,13 +11,15 @@ pub mod state;
 
 // Simple badges
 fn badge(text: &str, bg: Color) -> View {
-    TextColor(Text(text.to_string()), Color::from_hex("#EEEEEE")).modifier(
-        Modifier::new()
-            .padding(2.0)
-            .background(bg)
-            .clip_rounded(4.0)
-            .padding(6.0),
-    )
+    Text(text.to_string())
+        .color(Color::from_hex("#EEEEEE"))
+        .modifier(
+            Modifier::new()
+                .padding(2.0)
+                .background(bg)
+                .clip_rounded(4.0)
+                .padding(6.0),
+        )
 }
 
 // Filter chip
@@ -110,10 +112,8 @@ fn details_card(store: Rc<Store>) -> View {
     let results = s.results.clone();
     let selected = s.selected.clone();
     let Some(id) = &s.selected else {
-        return Column(Modifier::new().padding(16.0)).child(TextColor(
-            Text("Select a package to see details"),
-            Color::from_hex("#AAAAAA"),
-        ));
+        return Column(Modifier::new().padding(16.0))
+            .child(Text("Select a package to see details").color(Color::from_hex("#AAAAAA")));
     };
     // Find summary in current results (lightweight until details endpoint is used)
     let pkg = results.into_iter().find(|p| &p.id == id);
@@ -127,7 +127,7 @@ fn details_card(store: Rc<Store>) -> View {
         )
         .child((
             Row(Modifier::new().align_self_center()).child((
-                TextSize(Text(pkg.id.name.clone()), 18.0),
+                Text(pkg.id.name.clone()).size(18.0),
                 if pkg.id.source == Source::Aur {
                     badge("AUR", Color::from_hex("#6B46C1"))
                 } else {
@@ -174,10 +174,8 @@ fn details_card(store: Rc<Store>) -> View {
             )),
         ))
     } else {
-        Column(Modifier::new().padding(16.0)).child(TextColor(
-            Text("No details available"),
-            Color::from_hex("#AAAAAA"),
-        ))
+        Column(Modifier::new().padding(16.0))
+            .child(Text("No details available").color(Color::from_hex("#AAAAAA")))
     }
 }
 
@@ -193,7 +191,9 @@ pub fn root_view(store: Rc<Store>) -> View {
         Column(Modifier::new().padding(12.0)).child((
             // Header bar
             Row(Modifier::new().padding(8.0)).child((
-                TextSize(Text("Heyday"), 20.0).modifier(Modifier::new().padding(8.0)),
+                Text("Heyday")
+                    .size(20.0)
+                    .modifier(Modifier::new().padding(8.0)),
                 Spacer(),
                 if s.in_upgrades_view && !s.results.is_empty() {
                     Button("Upgrade all", {
@@ -294,10 +294,10 @@ pub fn root_view(store: Rc<Store>) -> View {
                         // Left: result list
                         Column(Modifier::new().grid_span(left_span, 1)).child(
                             if s.results.is_empty() {
-                                Column(Modifier::new().padding(16.0)).child(TextColor(
-                                    Text("No results. Try searching."),
-                                    Color::from_hex("#888888"),
-                                ))
+                                Column(Modifier::new().padding(16.0)).child(
+                                    Text("No results. Try searching.")
+                                        .color(Color::from_hex("#888888")),
+                                )
                             } else {
                                 LazyColumn(
                                     s.results.clone(),
@@ -326,14 +326,12 @@ pub fn root_view(store: Rc<Store>) -> View {
             },
             // Footer / status
             Row(Modifier::new().padding(8.0)).child((
-                TextColor(TextSize(Text("Status"), 12.0), Color::from_hex("#888888")),
-                TextColor(
-                    Text(format!(
-                        "  |  {}",
-                        s.progress_log.lines().last().unwrap_or("")
-                    )),
-                    Color::from_hex("#A0A0A0"),
-                )
+                Text("Status").size(12.0).color(Color::from_hex("#888888")),
+                Text(format!(
+                    "  |  {}",
+                    s.progress_log.lines().last().unwrap_or("")
+                ))
+                .color(Color::from_hex("#A0A0A0"))
                 .modifier(Modifier::new().padding(4.0)),
                 Spacer(),
                 Button(
@@ -356,11 +354,10 @@ pub fn root_view(store: Rc<Store>) -> View {
                     // .border(1.0, Color::from_hex("#2A2A2A"), 6.0)
                     .clip_rounded(6.0))
                 .child(
-                    TextColor(
-                        TextSize(Text(s.progress_log.clone()), 12.0),
-                        Color::from_hex("#B0B0B0"),
-                    )
-                    .modifier(Modifier::new().padding(8.0)),
+                    Text(s.progress_log.clone())
+                        .size(12.0)
+                        .color(Color::from_hex("#B0B0B0"))
+                        .modifier(Modifier::new().padding(8.0)),
                 )
             } else {
                 Box(Modifier::new())
