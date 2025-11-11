@@ -81,7 +81,8 @@ fn pkg_row(store: Rc<Store>, pkg: PackageSummary, selected: bool, upgrades_mode:
             Text(pkg.description.clone())
                 .size(12.0)
                 .color(Color::from_hex("#AAAAAA"))
-                .overflow_clip()
+                .max_lines(1)
+                .overflow_ellipsize()
                 .modifier(Modifier::new().padding(2.0).flex_grow(1.0).max_width(500.0)),
         )),
         if upgrades_mode {
@@ -191,7 +192,7 @@ pub fn root_view(store: Rc<Store>) -> View {
         Column(Modifier::new().padding(12.0)).child((
             // Header bar
             Row(Modifier::new().padding(8.0)).child((
-                Text("Heyday")
+                Text("soredowe")
                     .size(20.0)
                     .modifier(Modifier::new().padding(8.0)),
                 Spacer(),

@@ -25,7 +25,7 @@ concurrency:
   cancel-in-progress: false
 
 env:
-  BIN_NAME: heyday
+  BIN_NAME: soredowe
   CARGO_TERM_COLOR: always
 
 jobs:
@@ -296,8 +296,8 @@ jobs:
     needs: prepare-version
     runs-on: ubuntu-latest
     env:
-      APP_NAME: "Heyday"
-      APP_SLUG: "heyday"
+      APP_NAME: "soredowe"
+      APP_SLUG: "soredowe"
       ANDROID_API: "35"
       ANDROID_BUILD_TOOLS: "35.0.0"
       ANDROID_NDK_VERSION: "27.0.12077973"

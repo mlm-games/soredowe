@@ -1,18 +1,18 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <component type="desktop-application">
-  <id>io.github.mlm_games.Heyday</id>
-  <name>Heyday</name>
+  <id>io.github.mlm_games.soredowe</id>
+  <name>soredowe</name>
   <summary>Fast GUI for pacman and AUR</summary>
   <description>
-    <p>Heyday lets you search, view, and install packages from Arch repositories and the AUR with a noob friendly, fast UI.</p>
+    <p>soredowe lets you search, view, and install packages from Arch repositories and the AUR with a noob friendly, fast UI.</p>
   </description>
-  <developer id="org.heyday">
-    <name>Heyday Project</name>
+  <developer id="org.soredowe">
+    <name>soredowe Project</name>
   </developer>
   <project_license>MIT</project_license>
-  <launchable type="desktop-id">heyday.desktop</launchable>
+  <launchable type="desktop-id">soredowe.desktop</launchable>
   <provides>
-    <binary>heyday</binary>
+    <binary>soredowe</binary>
   </provides>
   <categories>
     <category>System</category>

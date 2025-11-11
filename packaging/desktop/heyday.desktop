@@ -1,10 +1,10 @@
 [Desktop Entry]
 Type=Application
-Name=Heyday
+Name=soredowe
 GenericName=Package Manager
 Comment=Browse and install packages from repositories and AUR
-Exec=heyday
-Icon=heyday
+Exec=soredowe
+Icon=soredowe
 Terminal=false
 Categories=System;PackageManager;
 StartupNotify=true
