@@ -63,7 +63,7 @@ impl Store {
         let mut s = AppState::default();
         s.filter_repo = true;
         s.filter_aur = true;
-        s.sort = SortMode::NameAsc;
+        s.sort = SortMode::default();
         Self {
             state: signal(s),
             tx_jobs,
