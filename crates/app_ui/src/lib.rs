@@ -205,7 +205,7 @@ pub fn root_view(store: Rc<Store>) -> View {
                 } else {
                     Box(Modifier::new())
                 },
-                Button("Refresh", {
+                Button("🔃 Refresh", {
                     let store = store.clone();
                     move || store.dispatch(Action::Search)
                 })

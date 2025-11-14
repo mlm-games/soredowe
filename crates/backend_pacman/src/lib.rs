@@ -465,7 +465,7 @@ impl PackageBackend for PacmanCli {
                 percent: None,
                 bytes: None,
                 log: Some(format!(
-                    "repo: pacman -Qu exit {} (treating as no upgrades)",
+                    "repo: pacman -Qu exit {} (treating as no upgrades (non synced))",
                     out.status.code().unwrap_or(-1)
                 )),
                 warning: true,
