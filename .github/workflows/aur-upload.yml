@@ -23,8 +23,7 @@ jobs:
       optdepends: "'yay: for installing from AUR'"
       provides: "soredowe"
       conflicts: "soredowe"
-      desktop-comment: "GUI for pacman/AUR users who prefer it (Wayland/Vulkan)"
-      desktop-categories: "System;PackageManager;"
+      desktop-file-path: "packaging/flathub/io.github.mlm_games.soredowe.desktop"
       icon-url: "https://raw.githubusercontent.com/mlm-games/soredowe/main/packaging/icons/hicolor/scalable/apps/soredowe.svg"
       version: ${{ inputs.version_name }}
       maintainer-name: "MLM-stuff"
