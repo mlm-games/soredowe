@@ -1,133 +1,33 @@
 name: Publish to AUR
 
+# Thin dispatcher: rust-app-release dispatches here with version_name,
+# we delegate to the shared reusable (desktop entry + icon included).
 on:
   workflow_dispatch:
     inputs:
       version_name:
-        description: 'Version name (e.g., v0.2.9)'
+        description: 'Version name, no v prefix (e.g., 0.2.9)'
         required: true
 
 jobs:
   update-aur:
-    runs-on: ubuntu-latest
-    steps:
-      - uses: actions/checkout@v7
-
-      - name: Download Linux tarballs from release
-        shell: bash
-        run: |
-          set -euo pipefail
-          VERSION="${{ inputs.version_name }}"
-          mkdir -p downloads
-
-          # Try both with and without 'v' prefix for release tag
-          DOWNLOADED=false
-          for TAG in "v$VERSION" "$VERSION"; do
-            URL_X64="https://github.com/mlm-games/soredowe/releases/download/${TAG}/soredowe-${VERSION}-x86_64-unknown-linux-gnu.tar.gz"
-            if curl --output /dev/null --silent --head --fail "$URL_X64"; then
-              wget -O "downloads/soredowe-${VERSION}-x86_64-unknown-linux-gnu.tar.gz" "$URL_X64"
-              wget -O "downloads/soredowe-${VERSION}-aarch64-unknown-linux-gnu.tar.gz" \
-                "https://github.com/mlm-games/soredowe/releases/download/${TAG}/soredowe-${VERSION}-aarch64-unknown-linux-gnu.tar.gz"
-              DOWNLOADED=true
-              break
-            fi
-          done
-
-          if [[ "$DOWNLOADED" != "true" ]]; then
-            echo "Failed to download tarballs"
-            exit 1
-          fi
-
-      - name: Calculate SHA256 checksums
-        id: checksums
-        shell: bash
-        run: |
-          set -euo pipefail
-          VERSION="${{ inputs.version_name }}"
-          X64_TARBALL="downloads/soredowe-${VERSION}-x86_64-unknown-linux-gnu.tar.gz"
-          ARM64_TARBALL="downloads/soredowe-${VERSION}-aarch64-unknown-linux-gnu.tar.gz"
-          X64_HASH=$(sha256sum "$X64_TARBALL" | cut -d ' ' -f 1)
-          ARM64_HASH=$(sha256sum "$ARM64_TARBALL" | cut -d ' ' -f 1)
-          echo "x64_hash=$X64_HASH"   >> "$GITHUB_OUTPUT"
-          echo "arm64_hash=$ARM64_HASH" >> "$GITHUB_OUTPUT"
-
-      - name: Create PKGBUILD
-        shell: bash
-        run: |
-          set -euo pipefail
-          ver="${{ inputs.version_name }}"
-          tag="v${ver#v}"
-          pkgver="${ver#v}"
-          mkdir -p aur-package
-          cat > aur-package/PKGBUILD <<'EOF'
-          # Maintainer: MLM-stuff <gfxoxinzh@mozmail.com>
-          pkgname=soredowe-bin
-          _pkgname=soredowe
-          pkgver={{PKGVER}}
-          _tag={{TAG}}
-          pkgrel=1
-          pkgdesc="Experimental GUI for pacman/AUR users who prefer it (Wayland/Vulkan)"
-          arch=('x86_64' 'aarch64')
-          url="https://github.com/mlm-games/soredowe"
-          license=('GPL3')
-          depends=('polkit' 'wayland' 'vulkan-icd-loader' 'fontconfig' 'hicolor-icon-theme' 'git')
-          optdepends=(
-            'yay: for installing from AUR'
-          )
-          provides=('soredowe')
-          conflicts=('soredowe')
-          options=('!strip')
-
-          source_x86_64=("${_pkgname}-${_tag}-x86_64-unknown-linux-gnu.tar.gz::https://github.com/mlm-games/soredowe/releases/download/${_tag}/${_pkgname}-${_tag}-x86_64-unknown-linux-gnu.tar.gz")
-          source_aarch64=("${_pkgname}-${_tag}-aarch64-unknown-linux-gnu.tar.gz::https://github.com/mlm-games/soredowe/releases/download/${_tag}/${_pkgname}-${_tag}-aarch64-unknown-linux-gnu.tar.gz")
-          # Icon
-          source=("icon.svg::https://raw.githubusercontent.com/mlm-games/soredowe/refs/heads/main/packaging/icons/hicolor/scalable/apps/soredowe.svg")
-
-          sha256sums_x86_64=('{{X64_HASH}}')
-          sha256sums_aarch64=('{{ARM64_HASH}}')
-          sha256sums=('SKIP') # for icon.svg
-
-          package() {
-            local target
-            if [[ "$CARCH" == "x86_64" ]]; then
-              target="x86_64-unknown-linux-gnu"
-            else
-              target="aarch64-unknown-linux-gnu"
-            fi
-
-            local dir="${srcdir}/${_pkgname}-${_tag}-${target}"
-            install -Dm755 "${dir}/${_pkgname}" "${pkgdir}/usr/bin/${_pkgname}"
-
-            install -Dm644 /dev/stdin "${pkgdir}/usr/share/applications/${_pkgname}.desktop" << DESKTOP_EOF
-          [Desktop Entry]
-          Name=soredowe
-          Comment=GUI for pacman/AUR users who prefer it (Wayland/Vulkan)
-          Exec=${_pkgname}
-          Icon=${_pkgname}
-          Terminal=false
-          Type=Application
-          Categories=System;PackageManager;
-          StartupNotify=true
-          DESKTOP_EOF
-
-            # Icon
-            install -Dm644 "${srcdir}/icon.svg" "${pkgdir}/usr/share/pixmaps/${_pkgname}.svg"
-          }
-          EOF
-
-          # Inject values
-          sed -i "s/{{PKGVER}}/${pkgver}/g" aur-package/PKGBUILD
-          sed -i "s/{{TAG}}/${tag}/g" aur-package/PKGBUILD
-          sed -i "s/{{X64_HASH}}/${{ steps.checksums.outputs.x64_hash }}/g" aur-package/PKGBUILD
-          sed -i "s/{{ARM64_HASH}}/${{ steps.checksums.outputs.arm64_hash }}/g" aur-package/PKGBUILD
-
-      - name: Publish to AUR
-        uses: mlm-games/aur-deploy-action@master
-        with:
-          pkgname: soredowe-bin
-          pkgbuild: aur-package/PKGBUILD
-          auto_pkgrel: 'true'
-          commit_username: MLM-stuff
-          commit_email: gfxoxinzh@mozmail.com
-          ssh_private_key: ${{ secrets.AUR_SSH_PRIVATE_KEY }}
-          commit_message: "Update to ${{ inputs.version_name }}"
+    uses: mlm-games/ci/.github/workflows/aur-upload.yml@v1
+    with:
+      pkgname: soredowe-bin
+      pkgdesc: "Experimental GUI for pacman/AUR users who prefer it (Wayland/Vulkan)"
+      binary-name: soredowe-${{ inputs.version_name }}-x86_64-unknown-linux-gnu.tar.gz
+      binary-name-aarch64: soredowe-${{ inputs.version_name }}-aarch64-unknown-linux-gnu.tar.gz
+      app-name: "soredowe"
+      license: "GPL-3.0-only"
+      depends: "polkit wayland vulkan-icd-loader fontconfig hicolor-icon-theme git"
+      optdepends: "'yay: for installing from AUR'"
+      provides: "soredowe"
+      conflicts: "soredowe"
+      desktop-comment: "GUI for pacman/AUR users who prefer it (Wayland/Vulkan)"
+      desktop-categories: "System;PackageManager;"
+      icon-url: "https://raw.githubusercontent.com/mlm-games/soredowe/main/packaging/icons/hicolor/scalable/apps/soredowe.svg"
+      version: ${{ inputs.version_name }}
+      maintainer-name: "MLM-stuff"
+      maintainer-email: "gfxoxinzh@mozmail.com"
+    secrets:
+      AUR_SSH_PRIVATE_KEY: ${{ secrets.AUR_SSH_PRIVATE_KEY }}
