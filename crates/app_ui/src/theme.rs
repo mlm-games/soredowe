@@ -267,7 +267,7 @@ pub const SEARCH_HEIGHT: Dp = Dp(52.0);
 pub const HEADER_HEIGHT: Dp = Dp(68.0);
 pub const STATUS_HEIGHT: Dp = Dp(56.0);
 pub const LOG_HEIGHT: Dp = Dp(180.0);
-pub const LIST_ITEM_HEIGHT: f32 = 88.0;
+pub const LIST_ITEM_HEIGHT: f32 = 104.0;
 
 pub const FONT_XS: Sp = Sp(11.0);
 pub const FONT_SM: Sp = Sp(12.0);

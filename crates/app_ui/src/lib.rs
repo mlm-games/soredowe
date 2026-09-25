@@ -10,10 +10,8 @@ use repose_material::material3::{
     CircularProgressIndicatorConfig, DividerConfig, DropdownMenu, DropdownMenuConfig,
     DropdownMenuEntry, DropdownMenuItem, HorizontalDivider, LinearProgressIndicator,
     LinearProgressIndicatorConfig, MenuState, NavItem, NavRailItem, NavigationBar,
-    NavigationBarConfig, NavigationDrawerConfig, NavigationRail, NavigationRailConfig,
-    PermanentNavigationDrawer, SegmentConfig, SegmentedButton, SegmentedButtonConfig, Surface,
-    SurfaceConfig, Switch, SwitchConfig, TopAppBar, TopAppBarColors, TopAppBarConfig,
-    VerticalDivider,
+    NavigationBarConfig, NavigationRail, NavigationRailConfig, SegmentConfig, SegmentedButton,
+    SegmentedButtonConfig, Surface, SurfaceConfig, Switch, SwitchConfig, VerticalDivider,
 };
 use repose_material::{Icon, Symbol, material_symbols};
 use repose_navigation::{
@@ -75,52 +73,44 @@ fn page_header(
     actions: Vec<View>,
 ) -> View {
     let compact = compact_layout();
-    TopAppBar(
-        Column(Modifier::new()).child((
-            Text(title.to_string())
-                .size(if compact { FONT_MD } else { FONT_LG })
-                .line_height(if compact { LINE_BASE } else { Sp(24.0) })
-                .font_weight(FontWeight::SEMI_BOLD)
-                .color(text_primary())
-                .single_line(),
-            if !compact {
-                subtitle
-                    .map(|text| {
-                        Box(Modifier::new().height(Dp(1.0))).child(
-                            Text(text.to_string())
-                                .size(FONT_SM)
-                                .color(text_muted())
-                                .single_line(),
-                        )
-                    })
-                    .unwrap_or(Box(Modifier::new()))
-            } else {
-                Box(Modifier::new())
-            },
-        )),
-        None,
-        navigation,
-        actions,
-        TopAppBarConfig {
-            modifier: Modifier::new().background(surface()),
-            colors: TopAppBarColors {
-                container_color: surface(),
-                scrolled_container_color: surface(),
-                navigation_icon_content_color: text_secondary(),
-                title_content_color: text_primary(),
-                subtitle_content_color: text_muted(),
-                action_icon_content_color: text_secondary(),
-            },
-            height: HEADER_HEIGHT,
-            content_padding: PaddingValues {
-                left: if compact { SPACE_3 } else { SPACE_5 },
-                right: if compact { SPACE_3 } else { SPACE_5 },
-                top: Dp(0.0),
-                bottom: Dp(0.0),
-            },
-            ..Default::default()
+    let title_content = Column(Modifier::new().weight(1.0).min_width(Dp(0.0))).child((
+        Text(title.to_string())
+            .size(if compact { FONT_MD } else { FONT_LG })
+            .line_height(if compact { LINE_BASE } else { Sp(24.0) })
+            .font_weight(FontWeight::SEMI_BOLD)
+            .color(text_primary())
+            .single_line()
+            .overflow_ellipsize(),
+        if !compact {
+            subtitle
+                .map(|text| {
+                    Text(text.to_string())
+                        .size(FONT_SM)
+                        .color(text_muted())
+                        .single_line()
+                        .overflow_ellipsize()
+                })
+                .unwrap_or(Box(Modifier::new()))
+        } else {
+            Box(Modifier::new())
         },
-    )
+    ));
+    let navigation =
+        Box(Modifier::new().flex_shrink(0.0)).child(navigation.unwrap_or(Box(Modifier::new())));
+    let actions = Row(Modifier::new().flex_shrink(0.0).gap(SPACE_2)).child(actions);
+
+    Row(Modifier::new()
+        .fill_max_width()
+        .height(HEADER_HEIGHT)
+        .padding_values(PaddingValues {
+            left: if compact { SPACE_3 } else { SPACE_5 },
+            right: if compact { SPACE_3 } else { SPACE_5 },
+            top: Dp(0.0),
+            bottom: Dp(0.0),
+        })
+        .background(surface())
+        .align_items(AlignItems::CENTER))
+    .child((navigation, title_content, actions))
 }
 
 fn home_header(store: &Rc<Store>, s: &AppState) -> View {
@@ -492,14 +482,8 @@ fn pkg_row(store: Rc<Store>, pkg: PackageSummary, selected: bool, upgrades_mode:
         .align_items(AlignItems::CENTER))
     .child((
         source_icon(source, Dp(40.0)).modifier(Modifier::new().flex_shrink(0.0)),
-        Box(Modifier::new().width(SPACE_3)),
-        Column(
-            Modifier::new()
-                .flex_grow(1.0)
-                .min_width(Dp(0.0))
-                .gap(Dp(3.0)),
-        )
-        .child((
+        Box(Modifier::new().width(SPACE_3).flex_shrink(0.0)),
+        Column(Modifier::new().weight(1.0).min_width(Dp(0.0)).gap(Dp(3.0))).child((
             Text(name)
                 .size(FONT_BASE)
                 .line_height(LINE_BASE)
@@ -507,27 +491,34 @@ fn pkg_row(store: Rc<Store>, pkg: PackageSummary, selected: bool, upgrades_mode:
                 .color(text_primary())
                 .single_line()
                 .overflow_ellipsize()
-                .modifier(Modifier::new().flex_grow(1.0).min_width(Dp(0.0))),
+                .modifier(Modifier::new().fill_max_width()),
             Text(description)
                 .size(FONT_SM)
                 .line_height(Sp(17.0))
                 .color(text_muted())
-                .single_line()
+                .max_lines(2)
                 .overflow_ellipsize()
-                .modifier(Modifier::new().fill_max_width()),
-            Row(Modifier::new().align_items(AlignItems::CENTER).gap(SPACE_2)).child((
+                .modifier(Modifier::new().fill_max_width().min_width(Dp(0.0))),
+            Row(Modifier::new()
+                .min_width(Dp(0.0))
+                .align_items(AlignItems::CENTER)
+                .gap(SPACE_2))
+            .child((
                 source_badge(&pkg),
                 Text(format!("v{}", version.trim_start_matches('v')))
                     .size(FONT_XS)
                     .font_family(FONT_MONO)
                     .color(text_dimmed())
-                    .single_line(),
+                    .single_line()
+                    .overflow_ellipsize()
+                    .modifier(Modifier::new().flex_shrink(1.0).min_width(Dp(0.0))),
             )),
         )),
-        Box(Modifier::new().width(SPACE_3)),
+        Box(Modifier::new().width(SPACE_3).flex_shrink(0.0)),
         Column(
             Modifier::new()
                 .width(action_width)
+                .flex_shrink(0.0)
                 .align_self_center()
                 .align_items(AlignItems::CENTER)
                 .gap(Dp(4.0)),
@@ -658,6 +649,8 @@ fn results_list(store: &Rc<Store>, s: &AppState) -> View {
             modifier: Modifier::new()
                 .fill_max_width()
                 .weight(1.0)
+                .min_width(Dp(0.0))
+                .min_height(Dp(0.0))
                 .padding(SPACE_1)
                 .background(bg())
                 .clip_rounded(R_MD),
@@ -856,7 +849,8 @@ fn home_view(store: Rc<Store>) -> View {
         Column(
             Modifier::new()
                 .fill_max_width()
-                .flex_grow(1.0)
+                .weight(1.0)
+                .min_height(Dp(0.0))
                 .padding_values(PaddingValues {
                     left: padding,
                     right: padding,
@@ -1124,7 +1118,11 @@ fn detail_page(store: Rc<Store>, s: &AppState) -> View {
                 thickness: Dp(1.0),
                 ..Default::default()
             }),
-            Box(Modifier::new().flex_grow(1.0).fill_max_height()).child(detail_pane),
+            Box(Modifier::new()
+                .weight(1.0)
+                .min_width(Dp(0.0))
+                .fill_max_height())
+            .child(detail_pane),
         ))
     } else {
         detail_pane
@@ -1935,19 +1933,19 @@ fn adaptive_navigation(store: Rc<Store>, route: Route, content: View) -> View {
     let actions = navigation_actions(store.clone());
 
     match window_size_class().width {
-        WidthClass::Expanded => PermanentNavigationDrawer(
-            navigation_drawer(selected, update_count, actions),
-            Box(Modifier::new().fill_max_size()).child(content),
-            NavigationDrawerConfig {
-                modifier: Modifier::new(),
-                container_color: surface(),
-                content_color: bg(),
-                scrim_color: scrim().with_alpha_f32(0.32),
-                tonal_elevation: Dp(0.0),
-                width: Dp(224.0),
-                shape_radius: Dp(0.0),
-            },
-        ),
+        WidthClass::Expanded => Row(Modifier::new().fill_max_size()).child((
+            Box(Modifier::new()
+                .width(Dp(224.0))
+                .fill_max_height()
+                .background(surface()))
+            .child(navigation_drawer(selected, update_count, actions)),
+            Box(Modifier::new()
+                .weight(1.0)
+                .min_width(Dp(0.0))
+                .fill_max_height()
+                .background(bg()))
+            .child(content),
+        )),
         WidthClass::Medium => Row(Modifier::new().fill_max_size()).child((
             Box(Modifier::new().fill_max_height()).child(navigation_rail(
                 selected,
@@ -1958,10 +1956,18 @@ fn adaptive_navigation(store: Rc<Store>, route: Route, content: View) -> View {
                 .fill_max_height()
                 .width(Dp(1.0))
                 .background(card_border())),
-            Box(Modifier::new().flex_grow(1.0).fill_max_height()).child(content),
+            Box(Modifier::new()
+                .weight(1.0)
+                .min_width(Dp(0.0))
+                .fill_max_height())
+            .child(content),
         )),
         WidthClass::Compact => Column(Modifier::new().fill_max_size()).child((
-            Box(Modifier::new().flex_grow(1.0).fill_max_width()).child(content),
+            Box(Modifier::new()
+                .weight(1.0)
+                .min_width(Dp(0.0))
+                .fill_max_width())
+            .child(content),
             Box(Modifier::new().height(Dp(1.0)).background(card_border())),
             navigation_bar(selected, update_count, actions),
         )),
@@ -2009,4 +2015,63 @@ pub fn root_view(store: Rc<Store>) -> View {
             || adaptive_navigation(store.clone(), route, nav_display),
         )
     })
+}
+
+#[cfg(test)]
+mod layout_tests {
+    use super::*;
+    use domain::config::Settings;
+    use domain::{PackageId, Source};
+    use std::collections::HashMap;
+
+    #[test]
+    fn long_package_description_stays_inside_adaptive_shell() {
+        let (tx, _rx) = crossbeam_channel::unbounded();
+        let store = Rc::new(Store::new(tx, None, Settings::default()));
+        let package = PackageSummary {
+            id: PackageId {
+                name: "package-with-a-long-name".into(),
+                source: Source::Aur,
+                repo: Some("core".into()),
+            },
+            version: "1.0.0".into(),
+            description: "supercalifragilisticexpialidocious-supercalifragilisticexpialidocious-supercalifragilisticexpialidocious-supercalifragilisticexpialidocious".into(),
+            installed: false,
+            popular: Some(1),
+            last_updated: None,
+        };
+        let view = root_view(store.clone());
+        let _ = repose_ui::layout_and_paint(
+            &view,
+            (1200, 800),
+            &HashMap::new(),
+            &Default::default(),
+            None,
+        );
+        store.state.update(|state| {
+            state.raw_results = vec![package.clone()];
+            state.results = vec![package];
+        });
+        let view = root_view(store);
+
+        for size in [(1200, 800), (900, 800), (600, 800)] {
+            let (scene, _, _) = repose_ui::layout_and_paint(
+                &view,
+                size,
+                &HashMap::new(),
+                &Default::default(),
+                None,
+            );
+            let overflow: Vec<_> = scene
+                .nodes
+                .iter()
+                .filter_map(|node| match node {
+                    SceneNode::Rect { rect, .. } | SceneNode::Text { rect, .. } => Some(*rect),
+                    _ => None,
+                })
+                .filter(|rect| rect.x < -0.5 || rect.x + rect.w > size.0 as f32 + 0.5)
+                .collect();
+            assert!(overflow.is_empty(), "{size:?} overflow: {overflow:?}");
+        }
+    }
 }
