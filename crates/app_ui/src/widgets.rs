@@ -296,7 +296,7 @@ pub fn tooltip_icon_button(
     TooltipBox(
         label,
         state,
-        Modifier::new(),
+        Modifier::new().align_self_center(),
         button,
         TooltipConfig {
             position: TooltipAnchorPosition::Below,

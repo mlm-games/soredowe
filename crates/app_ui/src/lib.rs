@@ -449,6 +449,11 @@ fn pkg_row(store: Rc<Store>, pkg: PackageSummary, selected: bool, upgrades_mode:
     let description = pkg.description.clone();
     let version = pkg.version.clone();
     let installed = pkg.installed;
+    let action_width = if compact_layout() {
+        Dp(92.0)
+    } else {
+        Dp(104.0)
+    };
 
     Row(Modifier::new()
         .fill_max_width()
@@ -486,24 +491,23 @@ fn pkg_row(store: Rc<Store>, pkg: PackageSummary, selected: bool, upgrades_mode:
         })
         .align_items(AlignItems::CENTER))
     .child((
-        source_icon(source, Dp(40.0)),
+        source_icon(source, Dp(40.0)).modifier(Modifier::new().flex_shrink(0.0)),
         Box(Modifier::new().width(SPACE_3)),
-        Column(Modifier::new().flex_grow(1.0).gap(Dp(3.0))).child((
-            Row(Modifier::new().align_items(AlignItems::CENTER).gap(SPACE_2)).child((
-                Text(name)
-                    .size(FONT_BASE)
-                    .line_height(LINE_BASE)
-                    .font_weight(FontWeight::SEMI_BOLD)
-                    .color(text_primary())
-                    .single_line()
-                    .overflow_ellipsize()
-                    .modifier(Modifier::new().flex_grow(1.0)),
-                if installed {
-                    installed_badge()
-                } else {
-                    Box(Modifier::new())
-                },
-            )),
+        Column(
+            Modifier::new()
+                .flex_grow(1.0)
+                .min_width(Dp(0.0))
+                .gap(Dp(3.0)),
+        )
+        .child((
+            Text(name)
+                .size(FONT_BASE)
+                .line_height(LINE_BASE)
+                .font_weight(FontWeight::SEMI_BOLD)
+                .color(text_primary())
+                .single_line()
+                .overflow_ellipsize()
+                .modifier(Modifier::new().flex_grow(1.0).min_width(Dp(0.0))),
             Text(description)
                 .size(FONT_SM)
                 .line_height(Sp(17.0))
@@ -521,10 +525,20 @@ fn pkg_row(store: Rc<Store>, pkg: PackageSummary, selected: bool, upgrades_mode:
             )),
         )),
         Box(Modifier::new().width(SPACE_3)),
-        Box(Modifier::new().width(Dp(104.0)).align_self_center()).child(pkg_action(
-            &store,
-            &pkg,
-            upgrades_mode,
+        Column(
+            Modifier::new()
+                .width(action_width)
+                .align_self_center()
+                .align_items(AlignItems::CENTER)
+                .gap(Dp(4.0)),
+        )
+        .child((
+            if installed {
+                installed_badge()
+            } else {
+                Box(Modifier::new())
+            },
+            pkg_action(&store, &pkg, upgrades_mode),
         )),
     ))
 }
