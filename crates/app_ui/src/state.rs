@@ -1,6 +1,6 @@
 use crate::theme;
 use crossbeam_channel as chan;
-use domain::config::Settings;
+use domain::config::{Settings, ThemeMode};
 use domain::*;
 use repose_core::locals::with_theme;
 use repose_core::signal::signal;
@@ -146,6 +146,7 @@ pub enum Action {
     OpenSettings,
     SetBackendEnabled { backend: String, enabled: bool },
     SetUpgradeAllSource { backend: String, enabled: bool },
+    SetTheme(ThemeMode),
 }
 
 pub struct Store {
@@ -218,10 +219,13 @@ impl Store {
     pub fn show_snackbar(&self, msg: String) {
         if let Some(ref snackbar) = self.snackbar {
             let mut snackbar_theme = theme();
-            snackbar_theme.colors.surface_variant = snackbar_theme.error_container;
-            snackbar_theme.colors.on_surface = snackbar_theme.on_error_container;
-            snackbar_theme.colors.primary = snackbar_theme.on_error_container;
-            snackbar_theme.colors.outline_variant = snackbar_theme.error_container;
+            let background = theme::danger_bg();
+            let foreground = theme::danger();
+            let border = theme::danger_border();
+            snackbar_theme.colors.surface_variant = background;
+            snackbar_theme.colors.on_surface = foreground;
+            snackbar_theme.colors.primary = foreground;
+            snackbar_theme.colors.outline_variant = border;
             let msg = msg.clone();
             let request = SnackbarRequest {
                 message: msg.clone(),
@@ -239,8 +243,8 @@ impl Store {
                                 Some(Dp(16.0)),
                             ),
                             material3::SnackbarConfig {
-                                container_color: snackbar_theme.error_container,
-                                content_color: snackbar_theme.on_error_container,
+                                container_color: background,
+                                content_color: foreground,
                                 ..Default::default()
                             },
                             dismissing,
@@ -471,6 +475,11 @@ impl Store {
                     "appimage" => s.settings.upgrade_appimage = enabled,
                     _ => {}
                 }
+                s.settings.save();
+            }
+
+            Action::SetTheme(theme) => {
+                s.settings.theme = theme;
                 s.settings.save();
             }
         }

@@ -1,12 +1,22 @@
 use serde::{Deserialize, Serialize};
 use std::{fs, path::PathBuf};
 
+#[derive(Clone, Copy, Debug, Default, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "lowercase")]
+pub enum ThemeMode {
+    #[default]
+    Dark,
+    Light,
+}
+
 #[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
 pub struct Settings {
     pub enable_repo: bool,
     pub enable_aur: bool,
     pub enable_flatpak: bool,
     pub enable_appimage: bool,
+    #[serde(default)]
+    pub theme: ThemeMode,
     pub upgrade_repo: bool,
     pub upgrade_aur: bool,
     pub upgrade_flatpak: bool,
@@ -20,6 +30,7 @@ impl Default for Settings {
             enable_aur: true,
             enable_flatpak: true,
             enable_appimage: true,
+            theme: ThemeMode::Dark,
             upgrade_repo: true,
             upgrade_aur: false,
             upgrade_flatpak: true,
