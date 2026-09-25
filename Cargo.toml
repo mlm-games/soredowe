@@ -14,53 +14,59 @@ resolver = "3"
 [workspace.package]
 version = "0.4.4"
 edition = "2024"
+license = "GPL-3.0"
+repository = "https://github.com/mlm-games/soredowe"
+description = "package manager UI"
+rust-version = "1.85"
 
 [workspace.dependencies]
-crossbeam-channel = "0.5.15"
-thiserror = "2"
-parking_lot = "0.12"
+# --- core ---
 anyhow = "1"
-env_logger = "0.11"
+thiserror = "2"
+log = "0.4"
+parking_lot = "0.12"
+crossbeam-channel = "0.5.15"
 regex = "1.12"
 nix = { version = "0.31", default-features = false, features = ["signal"] }
 serde = { version = "1", features = ["derive"] }
 serde_json = "1"
 urlencoding = "2"
 tempfile = "3"
-log = "0.4"
+env_logger = "0.11"
 
-# Package management
+# --- package management ---
 alpm = "5"
 libflatpak = "0.7"
 packagekit-zbus = "0.2"
 ureq = { version = "3", features = ["json"] }
 
-# UI
-repose-core = "0.22"
-repose-devtools = "0.22"
-repose-material = "0.22"
-repose-navigation = "0.22"
-repose-platform = "0.22"
-repose-render-wgpu = "0.22"
-repose-text = "0.22"
-repose-tree = "0.22"
-repose-ui = "0.22"
-colorhash = "0.1"
-bigcolor = "1.2"
+# --- repose ---
+repose-core = "0.30.22"
+repose-devtools = "0.30.22"
+repose-material = "0.30.22"
+repose-navigation = "0.30.22"
+repose-platform = "0.30.22"
+repose-render-wgpu = "0.30.22"
+repose-text = "0.30.22"
+repose-tree = "0.30.22"
+repose-ui = "0.30.22"
+
+# --- ui extras ---
 rfd = "0.17"
 shlex = "2"
 
+# --- internal (like renamite-*) ---
+soredowe-domain = { path = "crates/domain", version = "0.4.4" }
+soredowe-backend-alpm = { path = "crates/backend_alpm", version = "0.4.4" }
+soredowe-backend-aur = { path = "crates/backend_aur", version = "0.4.4" }
+soredowe-backend-flatpak = { path = "crates/backend_flatpak", version = "0.4.4" }
+soredowe-backend-packagekit = { path = "crates/backend_packagekit", version = "0.4.4" }
+soredowe-backend-appimage = { path = "crates/backend_appimage", version = "0.4.4" }
+soredowe-app-ui = { path = "crates/app_ui", version = "0.4.4" }
+soredowe-app-shell = { path = "crates/app_shell", version = "0.4.4" }
 
 # [patch.crates-io]
 # repose-core = { path = "../repose/crates/repose-core" }
-# repose-ui = { path = "../repose/crates/repose-ui" }
-# repose-platform = { path = "../repose/crates/repose-platform" }
-# repose-material = { path = "../repose/crates/repose-material" }
-# repose-navigation = { path = "../repose/crates/repose-navigation" }
-
 
 [profile.release]
-lto = "fat"
-codegen-units = 1
-panic = "abort"
-strip = "symbols"
+lto = "thin"

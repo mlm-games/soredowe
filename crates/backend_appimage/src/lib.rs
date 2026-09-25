@@ -690,7 +690,10 @@ impl PackageBackend for AppImageBackend {
             file.write_all(&buf[..n])
                 .map_err(|e| Error::AppImage(e.to_string()))?;
             downloaded += n as u64;
-            if total > 0 && (last_progress.elapsed() >= std::time::Duration::from_millis(100) || downloaded == total) {
+            if total > 0
+                && (last_progress.elapsed() >= std::time::Duration::from_millis(100)
+                    || downloaded == total)
+            {
                 let pct = downloaded as f32 / total as f32;
                 let _ = sink.send(Progress {
                     job_id: 0,
@@ -930,7 +933,10 @@ impl PackageBackend for AppImageBackend {
             file.write_all(&buf[..n])
                 .map_err(|e| Error::AppImage(e.to_string()))?;
             downloaded += n as u64;
-            if total > 0 && (last_progress.elapsed() >= std::time::Duration::from_millis(100) || downloaded == total) {
+            if total > 0
+                && (last_progress.elapsed() >= std::time::Duration::from_millis(100)
+                    || downloaded == total)
+            {
                 let pct = downloaded as f32 / total as f32;
                 let _ = sink.send(Progress {
                     job_id: 0,

@@ -1,7 +1,6 @@
 use repose_core::*;
 
-pub const BG_START: &str = "#0F172A";
-pub const BG_END: &str = "#020617";
+pub const BG: &str = "#0F172A";
 
 pub const CARD_BG: &str = "#111827";
 pub const CARD_BORDER: &str = "#1F2937";
@@ -44,24 +43,14 @@ pub const INDIGO: &str = "#818CF8";
 pub const INDIGO_BG: &str = "#1E1B4B";
 
 pub const LOG_TEXT: &str = "#A5B4FC";
-pub const STATUS_DOT: &str = "#22C55E";
+pub const STATE_OVERLAY: &str = "#FFFFFF";
+pub const R_SM: Dp = Dp(8.0);
+pub const R_MD: Dp = Dp(12.0);
+pub const R_LG: Dp = Dp(16.0);
 
-pub const R_SM: f32 = 8.0;
-pub const R_MD: f32 = 12.0;
-pub const R_LG: f32 = 16.0;
-
-pub const FONT_XS: f32 = 11.0;
-pub const FONT_SM: f32 = 13.0;
-pub const FONT_BASE: f32 = 14.0;
-pub const FONT_LG: f32 = 16.0;
-pub const FONT_XL: f32 = 20.0;
-pub const FONT_2XL: f32 = 24.0;
-
-pub fn v_gradient(top: &str, bot: &str) -> Brush {
-    Brush::Linear {
-        start: Vec2 { x: 0.0, y: 0.0 },
-        end: Vec2 { x: 0.0, y: 1.0 },
-        start_color: Color::from_hex(top),
-        end_color: Color::from_hex(bot),
-    }
-}
+pub const FONT_XS: Sp = Sp(11.0);
+pub const FONT_SM: Sp = Sp(13.0);
+pub const FONT_BASE: Sp = Sp(14.0);
+pub const FONT_LG: Sp = Sp(16.0);
+pub const FONT_XL: Sp = Sp(20.0);
+pub const FONT_2XL: Sp = Sp(24.0);

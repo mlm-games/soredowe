@@ -6,22 +6,20 @@ use repose_core::*;
 use repose_material::material3::dialog::{Dialog, DialogProperties, DialogState};
 use repose_material::material3::{
     Button, ButtonConfig, Card, CardConfig, CenterAlignedTopAppBar, Checkbox, CheckboxConfig,
-    ChipColors, ChipConfig, DividerConfig, FilterChip, HorizontalDivider, IconButton,
-    IconButtonColors, IconButtonConfig, LinearProgressIndicator, LinearProgressIndicatorConfig,
-    ListItem, ListItemConfig, SegmentConfig, SegmentedButton, SegmentedButtonConfig, Surface,
-    SurfaceConfig, Switch, SwitchConfig, TopAppBarColors, TopAppBarConfig,
+    ChipColors, ChipConfig, DividerConfig, FilterChip, HorizontalDivider, LinearProgressIndicator,
+    LinearProgressIndicatorConfig, ListItem, ListItemConfig, SegmentConfig, SegmentedButton,
+    SegmentedButtonConfig, Surface, SurfaceConfig, Switch, SwitchConfig, TopAppBarColors,
+    TopAppBarConfig,
 };
 use repose_material::{Icon, material_symbols};
 
 material_symbols! {
     CHEVRON_LEFT: '\u{e5cb}',
-    CHECKLIST: '\u{e912}',
     SEARCH: '\u{e8b6}',
 }
 use repose_navigation::{
     EntryScope, NavDisplay, NavTransition, Navigator, remember_back_stack, renderer,
 };
-use repose_ui::overlay::OverlayHandle;
 use repose_ui::{
     TextStyle,
     lazy::LazyColumn,
@@ -36,8 +34,6 @@ pub mod theme;
 pub mod widgets;
 
 const LOG_HEIGHT_DP: f32 = 180.0;
-const AVATAR_SIZE: f32 = 36.0;
-const AVATAR_SIZE_LG: f32 = 64.0;
 
 fn top_bar(store: &Rc<Store>, s: &AppState) -> View {
     let title = if s.in_upgrades_view {
@@ -53,35 +49,36 @@ fn top_bar(store: &Rc<Store>, s: &AppState) -> View {
         None,
         None,
         vec![
-            if s.in_upgrades_view && !s.results.is_empty() {
-                success_button("Upgrade all", {
-                    let store = store.clone();
-                    move || store.dispatch(Action::UpgradeAll)
-                })
+            if s.in_upgrades_view {
+                if !s.results.is_empty() {
+                    success_button("Upgrade all", {
+                        let store = store.clone();
+                        move || store.dispatch(Action::UpgradeAll)
+                    })
+                } else {
+                    Box(Modifier::new())
+                }
             } else {
-                Box(Modifier::new())
+                primary_button("Upgrades", {
+                    let store = store.clone();
+                    move || store.dispatch(Action::Upgrades)
+                })
             },
-            Space(Modifier::new().width(8.0)),
+            Space(Modifier::new().width(Dp(8.0))),
             secondary_button("Install File", {
                 let store = store.clone();
                 move || store.dispatch(Action::PickFile)
             }),
-            Space(Modifier::new().width(8.0)),
+            Space(Modifier::new().width(Dp(8.0))),
             secondary_button("Refresh", {
                 let store = store.clone();
                 move || store.dispatch(Action::Refresh)
             }),
-            Space(Modifier::new().width(8.0)),
+            Space(Modifier::new().width(Dp(8.0))),
             secondary_button("Settings", {
                 let store = store.clone();
                 move || store.dispatch(Action::OpenSettings)
             }),
-            Space(Modifier::new().width(8.0)),
-            primary_button("Upgrades", {
-                let store = store.clone();
-                move || store.dispatch(Action::Upgrades)
-            }),
-            Space(Modifier::new().width(16.0)),
         ],
         TopAppBarConfig {
             colors: TopAppBarColors {
@@ -99,76 +96,84 @@ fn search_section(store: &Rc<Store>, s: &AppState) -> View {
         Modifier::new()
             .fill_max_width()
             .padding_values(PaddingValues {
-                left: 0.0,
-                right: 0.0,
-                top: 8.0,
-                bottom: 8.0,
+                left: Dp(0.0),
+                right: Dp(0.0),
+                top: Dp(8.0),
+                bottom: Dp(8.0),
             }),
     )
     .child((
         Row(Modifier::new().fill_max_width()).child((
-            {
-                let search_state = remember_state(|| TextFieldState::new());
-                repose_ui::BasicTextField(
-                    search_state,
-                    Modifier::new()
-                        .flex_grow(1.0)
-                        .fill_max_width()
-                        .height(40.0)
-                        .padding_values(PaddingValues {
-                            left: 12.0,
-                            right: 12.0,
-                            top: 0.0,
-                            bottom: 0.0,
-                        })
-                        .background(Color::from_hex(CARD_BG))
-                        .border(1.0, Color::from_hex(CARD_BORDER), R_MD)
-                        .clip_rounded(R_MD)
-                        .semantics(Semantics {
-                            role: Role::TextField,
-                            label: Some("Search field".into()),
-                            focused: false,
-                            enabled: true,
-                            selectable_group: false,
-                        }),
-                    "Search packages…",
-                    TextFieldConfig {
-                        line_limits: TextFieldLineLimits::SingleLine,
-                        on_change: Some(Rc::new({
-                            let store = store.clone();
-                            move |text: String| store.dispatch(Action::SetQuery(text))
-                        })),
-                        on_submit: Some(Rc::new({
-                            let store = store.clone();
-                            move |text: String| {
-                                store.dispatch(Action::SetQuery(text));
-                                store.dispatch(Action::Search);
-                            }
-                        })),
-                        ..Default::default()
-                    },
-                )
-            },
-            Space(Modifier::new().width(8.0)),
-            IconButton(
-                Icon(Symbols::SEARCH).color(Color::from_hex(TEXT_PRIMARY)),
+            Row(Modifier::new()
+                .flex_grow(1.0)
+                .fill_max_width()
+                .height(Dp(40.0))
+                .background(Color::from_hex(CARD_BG))
+                .border(Dp(1.0), Color::from_hex(CARD_BORDER), R_MD)
+                .clip_rounded(R_MD)
+                .align_items(AlignItems::CENTER)
+                .padding_values(PaddingValues {
+                    left: Dp(12.0),
+                    right: Dp(12.0),
+                    top: Dp(0.0),
+                    bottom: Dp(0.0),
+                }))
+            .child((
+                Icon(Symbols::SEARCH)
+                    .size(Sp(18.0))
+                    .color(Color::from_hex(TEXT_MUTED))
+                    .single_line(),
+                Space(Modifier::new().width(Dp(8.0))),
                 {
-                    let store = store.clone();
-                    move || store.dispatch(Action::Search)
+                    let search_state = remember_state(TextFieldState::new);
+                    repose_ui::BasicTextField(
+                        search_state,
+                        Modifier::new()
+                            .flex_grow(1.0)
+                            .fill_max_width()
+                            .height(Dp(40.0))
+                            .padding_values(PaddingValues {
+                                left: Dp(0.0),
+                                right: Dp(0.0),
+                                top: Dp(0.0),
+                                bottom: Dp(0.0),
+                            })
+                            .semantics(Semantics {
+                                role: Role::TextField,
+                                label: Some("Search field".into()),
+                                focused: false,
+                                enabled: true,
+                                selectable_group: false,
+                                checked: None,
+                                selected: None,
+                                value: None,
+                            }),
+                        "Search packages",
+                        TextFieldConfig {
+                            line_limits: TextFieldLineLimits::SingleLine,
+                            on_change: Some(Rc::new({
+                                let store = store.clone();
+                                move |text: String| store.dispatch(Action::SetQuery(text))
+                            })),
+                            on_submit: Some(Rc::new({
+                                let store = store.clone();
+                                move |text: String| {
+                                    store.dispatch(Action::SetQuery(text));
+                                    store.dispatch(Action::Search);
+                                }
+                            })),
+                            ..Default::default()
+                        },
+                    )
                 },
-                IconButtonConfig {
-                    colors: IconButtonColors {
-                        container_color: Color::from_hex(SEL_BG),
-                        content_color: Color::from_hex(TEXT_PRIMARY),
-                        disabled_container_color: Color::from_hex(SEL_BG),
-                        disabled_content_color: Color::from_hex(TEXT_DIMMED),
-                    },
-                    container_size: Some(40.0),
-                    ..Default::default()
-                },
-            ),
+            )),
+            Space(Modifier::new().width(Dp(8.0))),
+            secondary_button("Search", {
+                let store = store.clone();
+                move || store.dispatch(Action::Search)
+            }),
         )),
-        Space(Modifier::new().height(8.0)),
+        Space(Modifier::new().height(Dp(8.0))),
         {
             let chip_cfg = ChipConfig {
                 colors: ChipColors {
@@ -205,7 +210,7 @@ fn search_section(store: &Rc<Store>, s: &AppState) -> View {
                     None,
                     ChipConfig { ..chip_cfg.clone() },
                 ),
-                Space(Modifier::new().width(6.0)),
+                Space(Modifier::new().width(Dp(6.0))),
                 FilterChip(
                     s.filter_aur,
                     {
@@ -217,7 +222,7 @@ fn search_section(store: &Rc<Store>, s: &AppState) -> View {
                     None,
                     ChipConfig { ..chip_cfg.clone() },
                 ),
-                Space(Modifier::new().width(6.0)),
+                Space(Modifier::new().width(Dp(6.0))),
                 FilterChip(
                     s.filter_flatpak,
                     {
@@ -229,7 +234,7 @@ fn search_section(store: &Rc<Store>, s: &AppState) -> View {
                     None,
                     ChipConfig { ..chip_cfg.clone() },
                 ),
-                Space(Modifier::new().width(6.0)),
+                Space(Modifier::new().width(Dp(6.0))),
                 FilterChip(
                     s.filter_appimage,
                     {
@@ -241,7 +246,7 @@ fn search_section(store: &Rc<Store>, s: &AppState) -> View {
                     None,
                     ChipConfig { ..chip_cfg.clone() },
                 ),
-                Space(Modifier::new().width(6.0)),
+                Space(Modifier::new().width(Dp(6.0))),
                 FilterChip(
                     s.filter_installed,
                     {
@@ -329,15 +334,17 @@ fn pkg_row(store: Rc<Store>, pkg: PackageSummary, _selected: bool, upgrades_mode
 
     Row(Modifier::new()
         .fill_max_width()
-        .padding(12.0)
-        .margin_vertical(3.0)
+        .padding(Dp(12.0))
+        .margin_vertical(Dp(3.0))
         .background(Color::from_hex(bg))
-        .border(1.0, Color::from_hex(border), R_MD)
+        .border(Dp(1.0), Color::from_hex(border), R_MD)
         .state_colors(StateColors {
             default: Color::TRANSPARENT,
-            hovered: Color::from_hex("#FFFFFF").with_alpha_f32(0.02),
-            pressed: Color::from_hex("#FFFFFF").with_alpha_f32(0.10),
+            hovered: Color::from_hex(STATE_OVERLAY).with_alpha_f32(0.02),
+            focused: Color::from_hex(STATE_OVERLAY).with_alpha_f32(0.02),
+            pressed: Color::from_hex(STATE_OVERLAY).with_alpha_f32(0.10),
             disabled: Color::TRANSPARENT,
+            dragged: Color::from_hex(STATE_OVERLAY).with_alpha_f32(0.10),
         })
         .clip_rounded(R_MD)
         .clickable()
@@ -347,29 +354,27 @@ fn pkg_row(store: Rc<Store>, pkg: PackageSummary, _selected: bool, upgrades_mode
             move |_| store.dispatch(Action::Select(id.clone()))
         }))
     .child((
-        pkg_avatar(&pkg.id.name, AVATAR_SIZE),
-        Space(Modifier::new().width(12.0)),
         Column(Modifier::new().flex_grow(1.0)).child((
             Row(Modifier::new().align_items(AlignItems::CENTER)).child((
                 Text(pkg.id.name.clone())
                     .size(FONT_LG)
                     .color(Color::from_hex(TEXT_PRIMARY)),
-                Space(Modifier::new().width(8.0)),
+                Space(Modifier::new().width(Dp(8.0))),
                 source_badge(&pkg),
-                Space(Modifier::new().width(4.0)),
+                Space(Modifier::new().width(Dp(4.0))),
                 if pkg.installed {
                     installed_badge()
                 } else {
                     Box(Modifier::new())
                 },
             )),
-            Space(Modifier::new().height(4.0)),
+            Space(Modifier::new().height(Dp(4.0))),
             Text(pkg.description.clone())
                 .size(FONT_SM)
                 .color(Color::from_hex(TEXT_MUTED))
                 .max_lines(1)
                 .overflow_ellipsize()
-                .modifier(Modifier::new().max_width(480.0)),
+                .modifier(Modifier::new().max_width(Dp(480.0))),
         )),
         Column(Modifier::new().align_self_center()).child((
             Text(pkg.version.clone())
@@ -379,10 +384,10 @@ fn pkg_row(store: Rc<Store>, pkg: PackageSummary, _selected: bool, upgrades_mode
                     Modifier::new()
                         .align_self_center()
                         .padding_values(PaddingValues {
-                            left: 0.0,
-                            right: 0.0,
-                            top: 0.0,
-                            bottom: 4.0,
+                            left: Dp(0.0),
+                            right: Dp(0.0),
+                            top: Dp(0.0),
+                            bottom: Dp(4.0),
                         }),
                 ),
             pkg_action(&store, &pkg, upgrades_mode),
@@ -392,14 +397,7 @@ fn pkg_row(store: Rc<Store>, pkg: PackageSummary, _selected: bool, upgrades_mode
 
 fn results_list(store: &Rc<Store>, s: &AppState) -> View {
     if s.results.is_empty() {
-        return empty_state(
-            "No results",
-            if s.query.trim().is_empty() {
-                "Search for a package or check upgrades."
-            } else {
-                "No packages matched your query / filters."
-            },
-        );
+        return empty_state("No results");
     }
 
     let store = store.clone();
@@ -432,7 +430,7 @@ fn results_list(store: &Rc<Store>, s: &AppState) -> View {
                 .fill_max_width()
                 .weight(1.0)
                 .clip_rounded(R_SM)
-                .padding(4.0),
+                .padding(Dp(4.0)),
             state: remember_with_key("pkg_scroll", LazyColumnState::new),
             animate_spec: None::<repose_core::animation::AnimationSpec>,
             ..Default::default()
@@ -453,10 +451,10 @@ fn detail_overlay(store: Rc<Store>, s: &AppState) -> View {
     let detail_section: View = if let Some(det) = &s.detail {
         details_body(det)
     } else {
-        Text("Loading details…")
+        Text("Loading details")
             .size(FONT_SM)
             .color(Color::from_hex(TEXT_DIMMED))
-            .modifier(Modifier::new().padding(8.0))
+            .modifier(Modifier::new().padding(Dp(8.0)))
     };
 
     let scroll = remember_scroll_state(format!(
@@ -466,34 +464,28 @@ fn detail_overlay(store: Rc<Store>, s: &AppState) -> View {
     scroll.set_show_scrollbar(false);
 
     ScrollArea(
-        Modifier::new().fill_max_size().padding(24.0),
+        Modifier::new().fill_max_size().padding(Dp(24.0)),
         scroll,
         Column(Modifier::new().fill_max_size().align_self_center()).child((
             Row(Modifier::new()
                 .fill_max_width()
                 .align_items(AlignItems::CENTER))
             .child((
-                IconButton(
-                    Icon(Symbols::CHEVRON_LEFT),
-                    {
-                        let store = store.clone();
-                        move || store.dispatch(Action::ClearSelection)
-                    },
-                    IconButtonConfig::default(),
-                ),
+                secondary_icon_button(Symbols::CHEVRON_LEFT, "Back", {
+                    let store = store.clone();
+                    move || store.dispatch(Action::ClearSelection)
+                }),
                 Spacer(),
                 pkg_action(&store, &summary, s.in_upgrades_view),
             )),
-            Space(Modifier::new().height(20.0)),
-            Row(Modifier::new().fill_max_width()).child((
-                pkg_avatar(&summary.id.name, AVATAR_SIZE_LG),
-                Space(Modifier::new().width(20.0)),
+            Space(Modifier::new().height(Dp(20.0))),
+            Row(Modifier::new().fill_max_width()).child(
                 Column(Modifier::new().flex_grow(1.0)).child((
                     Row(Modifier::new().align_items(AlignItems::CENTER)).child((
                         Text(summary.id.name.clone())
-                            .size(28.0)
+                            .size(Sp(28.0))
                             .color(Color::from_hex(TEXT_PRIMARY)),
-                        Space(Modifier::new().width(12.0)),
+                        Space(Modifier::new().width(Dp(12.0))),
                         source_badge(&summary),
                         if summary.installed {
                             installed_badge()
@@ -501,24 +493,24 @@ fn detail_overlay(store: Rc<Store>, s: &AppState) -> View {
                             Box(Modifier::new())
                         },
                     )),
-                    Space(Modifier::new().height(6.0)),
+                    Space(Modifier::new().height(Dp(6.0))),
                     Text(summary.description.clone())
                         .size(FONT_BASE)
                         .color(Color::from_hex(TEXT_SECONDARY))
                         .max_lines(8)
                         .overflow_ellipsize(),
-                    Space(Modifier::new().height(4.0)),
+                    Space(Modifier::new().height(Dp(4.0))),
                     Text(format!("v{}", summary.version.trim_start_matches('v')))
                         .size(FONT_SM)
                         .color(Color::from_hex(TEXT_DIMMED)),
                 )),
-            )),
-            Space(Modifier::new().height(16.0)),
+            ),
+            Space(Modifier::new().height(Dp(16.0))),
             HorizontalDivider(DividerConfig {
                 color: Color::from_hex(CARD_BORDER),
                 ..Default::default()
             }),
-            Space(Modifier::new().height(12.0)),
+            Space(Modifier::new().height(Dp(12.0))),
             detail_section,
         )),
     )
@@ -533,7 +525,7 @@ fn details_body(det: &PackageDetails) -> View {
             Text(long_desc.to_string())
                 .size(FONT_BASE)
                 .color(Color::from_hex(TEXT_SECONDARY))
-                .modifier(Modifier::new().margin_vertical(8.0)),
+                .modifier(Modifier::new().margin_vertical(Dp(8.0))),
         );
     }
 
@@ -562,11 +554,11 @@ fn details_body(det: &PackageDetails) -> View {
         rows.push(Card(
             CardConfig {
                 container_color: Color::from_hex(CARD_BG),
-                border: Some((1.0, Color::from_hex(CARD_BORDER))),
+                border: Some((Dp(1.0), Color::from_hex(CARD_BORDER))),
                 shape_radius: R_MD,
                 ..Default::default()
             },
-            || Column(Modifier::new().fill_max_width().padding(12.0)).child(info_rows),
+            || Column(Modifier::new().fill_max_width().padding(Dp(12.0))).child(info_rows),
         ));
     }
 
@@ -581,7 +573,7 @@ fn details_body(det: &PackageDetails) -> View {
 }
 
 fn status_bar(store: &Rc<Store>, s: &AppState) -> View {
-    let last = s.progress_log.lines().last().unwrap_or("Ready");
+    let last = s.progress_log.lines().last();
     let stage_label = s.active_stage.map(|st| format!("{:?}", st));
 
     let indicator = if let Some(stage) = &stage_label {
@@ -592,7 +584,7 @@ fn status_bar(store: &Rc<Store>, s: &AppState) -> View {
             Text(stage.as_str())
                 .size(FONT_XS)
                 .color(Color::from_hex(INDIGO))
-                .modifier(Modifier::new().padding(4.0).width(100.0)),
+                .modifier(Modifier::new().padding(Dp(4.0)).width(Dp(100.0))),
             if let Some(pct) = s.progress_pct {
                 LinearProgressIndicator(
                     Some(pct),
@@ -612,26 +604,26 @@ fn status_bar(store: &Rc<Store>, s: &AppState) -> View {
                     },
                 )
             },
-            Space(Modifier::new().width(4.0)),
+            Space(Modifier::new().width(Dp(4.0))),
             if let Some(pct) = s.progress_pct {
                 Text(format!("{:.0}%", pct * 100.0))
                     .size(FONT_XS)
                     .color(Color::from_hex(TEXT_DIMMED))
-                    .modifier(Modifier::new().width(40.0))
+                    .modifier(Modifier::new().width(Dp(40.0)))
             } else {
-                Box(Modifier::new().width(40.0))
+                Box(Modifier::new().width(Dp(40.0)))
             },
         ))
     } else {
-        Box(Modifier::new().height(6.0))
+        Box(Modifier::new().height(Dp(6.0)))
     };
 
-    Column(Modifier::new().fill_max_width().margin_vertical(4.0)).child((
+    Column(Modifier::new().fill_max_width().margin_vertical(Dp(4.0))).child((
         indicator,
         Card(
             CardConfig {
                 container_color: Color::from_hex(CARD_BG),
-                border: Some((1.0, Color::from_hex(CARD_BORDER))),
+                border: Some((Dp(1.0), Color::from_hex(CARD_BORDER))),
                 shape_radius: R_MD,
                 ..Default::default()
             },
@@ -639,24 +631,20 @@ fn status_bar(store: &Rc<Store>, s: &AppState) -> View {
                 Row(Modifier::new()
                     .fill_max_width()
                     .padding_values(PaddingValues {
-                        left: 10.0,
-                        right: 10.0,
-                        top: 10.0,
-                        bottom: 10.0,
+                        left: Dp(10.0),
+                        right: Dp(10.0),
+                        top: Dp(10.0),
+                        bottom: Dp(10.0),
                     }))
                 .child((
-                    Text("●")
-                        .size(8.0)
-                        .color(Color::from_hex(if s.active_stage.is_some() {
-                            INDIGO
-                        } else {
-                            STATUS_DOT
-                        }))
-                        .modifier(Modifier::new().align_self_center().padding(4.0)),
-                    Text(last.to_string())
-                        .size(FONT_SM)
-                        .color(Color::from_hex(TEXT_MUTED))
-                        .modifier(Modifier::new().flex_grow(1.0).align_self_center()),
+                    if let Some(last) = last {
+                        Text(last.to_string())
+                            .size(FONT_SM)
+                            .color(Color::from_hex(TEXT_MUTED))
+                            .modifier(Modifier::new().flex_grow(1.0).align_self_center())
+                    } else {
+                        Box(Modifier::new().flex_grow(1.0))
+                    },
                     secondary_button(
                         if s.log_expanded {
                             "Hide log"
@@ -683,24 +671,24 @@ fn log_panel(s: &AppState) -> View {
     ScrollArea(
         Modifier::new()
             .fill_max_width()
-            .height(LOG_HEIGHT_DP)
+            .height(Dp(LOG_HEIGHT_DP))
             .flex_shrink(0.0)
-            .padding(12.0)
-            .margin_vertical(4.0)
+            .padding(Dp(12.0))
+            .margin_vertical(Dp(4.0))
             .background(Color::from_hex(CARD_BG))
-            .border(1.0, Color::from_hex(CARD_BORDER), R_MD)
+            .border(Dp(1.0), Color::from_hex(CARD_BORDER), R_MD)
             .clip_rounded(R_MD),
         scroll,
         Column(Modifier::new().fill_max_width()).child(
             Text(s.progress_log.clone())
-                .size(12.0)
+                .size(Sp(12.0))
                 .color(Color::from_hex(LOG_TEXT))
                 .modifier(Modifier::new().fill_max_width()),
         ),
     )
 }
 
-fn settings_view(store: Rc<Store>, overlay: OverlayHandle, s: &AppState) -> View {
+fn settings_view(store: Rc<Store>, s: &AppState) -> View {
     let settings = &s.settings;
 
     let section = |title: &str| {
@@ -708,14 +696,14 @@ fn settings_view(store: Rc<Store>, overlay: OverlayHandle, s: &AppState) -> View
             .size(FONT_SM)
             .color(Color::from_hex(TEXT_DIMMED))
             .modifier(Modifier::new().padding_values(PaddingValues {
-                left: 4.0,
-                right: 0.0,
-                top: 16.0,
-                bottom: 8.0,
+                left: Dp(4.0),
+                right: Dp(0.0),
+                top: Dp(16.0),
+                bottom: Dp(8.0),
             }))
     };
 
-    let section_gap = || Space(Modifier::new().height(4.0));
+    let section_gap = || Space(Modifier::new().height(Dp(4.0)));
 
     let store_for_backend = store.clone();
     let backend_item =
@@ -772,25 +760,21 @@ fn settings_view(store: Rc<Store>, overlay: OverlayHandle, s: &AppState) -> View
     let upgrade_dialog_state = remember(DialogState::new);
 
     ScrollArea(
-        Modifier::new().fill_max_size().padding(24.0),
+        Modifier::new().fill_max_size().padding(Dp(24.0)),
         scroll,
         Column(Modifier::new().fill_max_size().align_self_center()).with_children(vec![
             Row(Modifier::new()
                 .fill_max_width()
                 .align_items(AlignItems::CENTER))
             .child((
-                IconButton(
-                    Icon(Symbols::CHEVRON_LEFT),
-                    move || {
-                        if let Some(ref nav) = *store_clone.navigator.borrow() {
-                            nav.pop();
-                        }
-                    },
-                    IconButtonConfig::default(),
-                ),
+                secondary_icon_button(Symbols::CHEVRON_LEFT, "Back", move || {
+                    if let Some(ref nav) = *store_clone.navigator.borrow() {
+                        nav.pop();
+                    }
+                }),
                 Spacer(),
             )),
-            Space(Modifier::new().height(8.0)),
+            Space(Modifier::new().height(Dp(8.0))),
             section("Backends"),
             backend_item(
                 "Repo packages",
@@ -822,14 +806,14 @@ fn settings_view(store: Rc<Store>, overlay: OverlayHandle, s: &AppState) -> View
                 settings.enable_appimage,
                 "appimage",
             ),
-            Space(Modifier::new().height(8.0)),
+            Space(Modifier::new().height(Dp(8.0))),
             {
                 let d = upgrade_dialog_state.clone();
                 ListItem(
                     "Upgrade all sources",
                     Some("Choose which backends to include when upgrading all packages".into()),
                     None,
-                    Some(Icon(Symbols::CHECKLIST)),
+                    None,
                     None,
                     Some(Rc::new(move || d.show())),
                     None,
@@ -841,24 +825,23 @@ fn settings_view(store: Rc<Store>, overlay: OverlayHandle, s: &AppState) -> View
             },
             Dialog(
                 upgrade_dialog_state.clone(),
-                overlay,
                 Modifier::new(),
                 DialogProperties::default(),
-                Column(Modifier::new().padding(20.0).min_width(320.0)).with_children(vec![
+                Column(Modifier::new().padding(Dp(20.0)).min_width(Dp(320.0))).with_children(vec![
                     Text("Upgrade all sources".to_string())
                         .size(FONT_LG)
                         .font_weight(FontWeight::BOLD)
                         .color(Color::from_hex(TEXT_PRIMARY)),
-                    Space(Modifier::new().height(4.0)),
+                    Space(Modifier::new().height(Dp(4.0))),
                     Text("Select backends to include")
                         .size(FONT_XS)
                         .color(Color::from_hex(TEXT_MUTED)),
-                    Space(Modifier::new().height(16.0)),
+                    Space(Modifier::new().height(Dp(16.0))),
                     upgrade_checkbox("Repository (pacman)", "repo", settings.upgrade_repo, &store),
                     upgrade_checkbox("AUR", "aur", settings.upgrade_aur, &store),
                     upgrade_checkbox("Flatpak", "flatpak", settings.upgrade_flatpak, &store),
                     upgrade_checkbox("AppImage", "appimage", settings.upgrade_appimage, &store),
-                    Space(Modifier::new().height(20.0)),
+                    Space(Modifier::new().height(Dp(20.0))),
                     Row(Modifier::new().fill_max_width()).child((Spacer(), {
                         let d = upgrade_dialog_state.clone();
                         Button(
@@ -874,24 +857,24 @@ fn settings_view(store: Rc<Store>, overlay: OverlayHandle, s: &AppState) -> View
                     })),
                 ]),
             ),
-            Space(Modifier::new().height(12.0)),
+            Space(Modifier::new().height(Dp(12.0))),
             section("Info"),
             Card(
                 CardConfig {
                     container_color: Color::from_hex(CARD_BG),
-                    border: Some((1.0, Color::from_hex(CARD_BORDER))),
+                    border: Some((Dp(1.0), Color::from_hex(CARD_BORDER))),
                     shape_radius: R_MD,
                     ..Default::default()
                 },
                 || {
-                    Row(Modifier::new().fill_max_width().padding(12.0)).child(
+                    Row(Modifier::new().fill_max_width().padding(Dp(12.0))).child(
                         Text("Disabled backends take effect after restart.")
                             .size(FONT_XS)
                             .color(Color::from_hex(TEXT_DIMMED)),
                     )
                 },
             ),
-            Space(Modifier::new().height(40.0)),
+            Space(Modifier::new().height(Dp(40.0))),
         ]),
     )
 }
@@ -920,8 +903,10 @@ fn upgrade_checkbox(label: &str, backend_key: &str, enabled: bool, store: &Rc<St
                 state_colors: StateColors {
                     default: Color::TRANSPARENT,
                     hovered: Color::from_hex(SEL_BG).with_alpha_f32(0.15),
+                    focused: Color::from_hex(SEL_BG).with_alpha_f32(0.15),
                     pressed: Color::from_hex(SEL_BG).with_alpha_f32(0.25),
                     disabled: Color::TRANSPARENT,
+                    dragged: Color::from_hex(SEL_BG).with_alpha_f32(0.25),
                 },
                 ..Default::default()
             },
@@ -945,15 +930,15 @@ fn home_view(store: Rc<Store>) -> View {
                 .fill_max_width()
                 .flex_grow(1.0)
                 .padding_values(PaddingValues {
-                    left: 16.0,
-                    right: 16.0,
-                    top: 0.0,
-                    bottom: 0.0,
+                    left: Dp(16.0),
+                    right: Dp(16.0),
+                    top: Dp(0.0),
+                    bottom: Dp(0.0),
                 }),
         )
         .child((
             search_section(&store, &s),
-            Space(Modifier::new().height(8.0)),
+            Space(Modifier::new().height(Dp(8.0))),
             results_list(&store, &s),
             status_bar(&store, &s),
             log_panel(&s),
@@ -961,7 +946,7 @@ fn home_view(store: Rc<Store>) -> View {
     ))
 }
 
-pub fn root_view(store: Rc<Store>, overlay: OverlayHandle) -> View {
+pub fn root_view(store: Rc<Store>) -> View {
     let stack = remember_back_stack(Route::Home);
     *store.navigator.borrow_mut() = Some(Navigator {
         stack: (*stack).clone(),
@@ -971,7 +956,7 @@ pub fn root_view(store: Rc<Store>, overlay: OverlayHandle) -> View {
         SurfaceConfig {
             modifier: Modifier::new()
                 .fill_max_size()
-                .background_brush(v_gradient(BG_START, BG_END)),
+                .background(Color::from_hex(BG)),
             ..Default::default()
         },
         || {
@@ -985,7 +970,7 @@ pub fn root_view(store: Rc<Store>, overlay: OverlayHandle) -> View {
                     }
                     Route::Settings => {
                         let s = store.state.get();
-                        settings_view(store.clone(), overlay.clone(), &s)
+                        settings_view(store.clone(), &s)
                     }
                 }),
                 None,

@@ -9,7 +9,7 @@ use app_ui::{
 };
 use domain::config::Settings;
 use domain::{Executor, PackageBackend};
-use repose_platform::run_desktop_app;
+use repose_platform::{AppConfig, run_desktop_app_with_config};
 use repose_ui::overlay::{OverlayHandle, SnackbarController};
 
 #[cfg(feature = "backend-alpm")]
@@ -79,15 +79,19 @@ fn main() -> anyhow::Result<()> {
     let snackbar = SnackbarController::new(overlay.clone());
 
     let store = Rc::new(Store::new(tx_jobs, Some(snackbar), settings));
-    // store.dispatch(Action::Refresh);  HACK: enable it once you figure out how octopi can update repos without polkit (is done via local repo updation, but a better soln might also be possible?)
-
-    run_desktop_app(move |_sched, _ctx| {
-        while let Ok(p) = rx_prog.try_recv() {
-            store.dispatch(Action::Progress(p));
-        }
-        while let Ok(e) = rx_evt.try_recv() {
-            store.dispatch(Action::Event(e));
-        }
-        overlay.host(Modifier::new().fill_max_size(), root_view(store.clone(), overlay.clone()))
-    })
+    run_desktop_app_with_config(
+        move |_sched, _ctx| {
+            while let Ok(p) = rx_prog.try_recv() {
+                store.dispatch(Action::Progress(p));
+            }
+            while let Ok(e) = rx_evt.try_recv() {
+                store.dispatch(Action::Event(e));
+            }
+            overlay.host(Modifier::new().fill_max_size(), root_view(store.clone()))
+        },
+        AppConfig {
+            window_title: "Soredowe".into(),
+            ..AppConfig::default()
+        },
+    )
 }

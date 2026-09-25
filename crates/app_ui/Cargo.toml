@@ -10,7 +10,5 @@ repose-material.workspace = true
 repose-navigation.workspace = true
 domain = { path = "../domain" }
 crossbeam-channel.workspace = true
-colorhash.workspace = true
-bigcolor.workspace = true
 serde.workspace = true
 rfd.workspace = true

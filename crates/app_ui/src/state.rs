@@ -61,7 +61,7 @@ pub struct AppState {
 
     /// Current operation stage, if any. Set to None when idle/finished/failed.
     pub active_stage: Option<Stage>,
-    /// Current progress fraction (0.0–1.0), if known.
+    /// Current progress fraction (0.0-1.0), if known.
     pub progress_pct: Option<f32>,
 
     pub settings: Settings,
@@ -227,22 +227,23 @@ impl Store {
                 message: msg.clone(),
                 action: None,
                 duration_ms: 6000,
-                builder: Rc::new(move || {
+                builder: Rc::new(move |dismissing| {
                     with_theme(snackbar_theme, || {
                         material3::Snackbar(
                             msg.clone(),
                             None,
                             Modifier::new().absolute().offset(
-                                Some(16.0),
+                                Some(Dp(16.0)),
                                 None,
-                                Some(16.0),
-                                Some(16.0),
+                                Some(Dp(16.0)),
+                                Some(Dp(16.0)),
                             ),
                             material3::SnackbarConfig {
                                 container_color: snackbar_theme.error_container,
                                 content_color: snackbar_theme.on_error_container,
                                 ..Default::default()
                             },
+                            dismissing,
                         )
                     })
                 }),
