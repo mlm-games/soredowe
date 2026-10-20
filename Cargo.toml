@@ -17,7 +17,7 @@ edition = "2024"
 license = "GPL-3.0"
 repository = "https://github.com/mlm-games/soredowe"
 description = "package manager UI"
-rust-version = "1.85"
+rust-version = "1.98"
 
 [workspace.dependencies]
 # --- core ---
@@ -41,15 +41,15 @@ packagekit-zbus = "0.2"
 ureq = { version = "3", features = ["json"] }
 
 # --- repose ---
-repose-core = "0.30.22"
-repose-devtools = "0.30.22"
-repose-material = "0.30.22"
-repose-navigation = "0.30.22"
-repose-platform = "0.30.22"
-repose-render-wgpu = "0.30.22"
-repose-text = "0.30.22"
-repose-tree = "0.30.22"
-repose-ui = "0.30.22"
+repose-core = "0.31.28"
+repose-devtools = "0.31.28"
+repose-material = "0.31.28"
+repose-navigation = "0.31.28"
+repose-platform = "0.31.28"
+repose-render-wgpu = "0.31.28"
+repose-text = "0.31.28"
+repose-tree = "0.31.28"
+repose-ui = "0.31.28"
 
 # --- ui extras ---
 rfd = "0.17"

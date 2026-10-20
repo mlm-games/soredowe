@@ -208,16 +208,11 @@ fn search_section(store: &Rc<Store>, s: &AppState) -> View {
                     .flex_grow(1.0)
                     .fill_max_width()
                     .height(SEARCH_HEIGHT)
-                    .semantics(Semantics {
-                        role: Role::TextField,
-                        label: Some("Search packages".into()),
-                        focused: false,
-                        enabled: true,
-                        selectable_group: false,
-                        checked: None,
-                        selected: None,
-                        value: Some(initial),
-                    }),
+                    .semantics(
+                        Semantics::new(Role::TextField)
+                            .with_label("Search packages")
+                            .with_value(initial),
+                    ),
                 "Name, description, or repository",
                 TextFieldConfig {
                     line_limits: TextFieldLineLimits::SingleLine,

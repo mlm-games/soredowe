@@ -45,7 +45,7 @@ fn parse_appstream_buf<R: BufRead>(reader: R) -> HashMap<String, AppstreamMeta> 
     loop {
         match xml.read_event_into(&mut buf) {
             Ok(Event::Start(ref e)) => {
-                let tag = String::from_utf8_lossy(e.name().as_ref()).to_string();
+                let tag = e.name().as_ref().to_string();
                 if tag == "component" {
                     in_component = true;
                     meta = AppstreamMeta::default();
@@ -53,7 +53,7 @@ fn parse_appstream_buf<R: BufRead>(reader: R) -> HashMap<String, AppstreamMeta> 
                 } else if in_component {
                     let has_lang = e
                         .attributes()
-                        .any(|a| a.ok().is_some_and(|a| a.key.as_ref() == b"xml:lang"));
+                        .any(|a| a.ok().is_some_and(|a| a.key.as_ref() == "xml:lang"));
                     if !has_lang {
                         match tag.as_str() {
                             "description" => in_desc = true,
@@ -62,8 +62,8 @@ fn parse_appstream_buf<R: BufRead>(reader: R) -> HashMap<String, AppstreamMeta> 
                                 url_type = e
                                     .attributes()
                                     .filter_map(|a| a.ok())
-                                    .find(|a| a.key.as_ref() == b"type")
-                                    .and_then(|a| String::from_utf8(a.value.to_vec()).ok())
+                                    .find(|a| a.key.as_ref() == "type")
+                                    .map(|a| a.value.into_owned())
                                     .unwrap_or_default();
                             }
                             "releases" => in_releases = true,
@@ -71,8 +71,8 @@ fn parse_appstream_buf<R: BufRead>(reader: R) -> HashMap<String, AppstreamMeta> 
                                 meta.version = e
                                     .attributes()
                                     .filter_map(|a| a.ok())
-                                    .find(|a| a.key.as_ref() == b"version")
-                                    .and_then(|a| String::from_utf8(a.value.to_vec()).ok());
+                                    .find(|a| a.key.as_ref() == "version")
+                                    .map(|a| a.value.into_owned());
                             }
                             "developer" => in_developer = true,
                             _ => {}
@@ -84,17 +84,17 @@ fn parse_appstream_buf<R: BufRead>(reader: R) -> HashMap<String, AppstreamMeta> 
                 }
             }
             Ok(Event::Empty(ref e)) => {
-                let tag = String::from_utf8_lossy(e.name().as_ref()).to_string();
+                let tag = e.name().as_ref().to_string();
                 if in_component && tag == "release" && in_releases && meta.version.is_none() {
                     meta.version = e
                         .attributes()
                         .filter_map(|a| a.ok())
-                        .find(|a| a.key.as_ref() == b"version")
-                        .and_then(|a| String::from_utf8(a.value.to_vec()).ok());
+                        .find(|a| a.key.as_ref() == "version")
+                        .map(|a| a.value.into_owned());
                 }
             }
             Ok(Event::End(ref e)) => {
-                let tag = String::from_utf8_lossy(e.name().as_ref()).to_string();
+                let tag = e.name().as_ref().to_string();
                 if tag == "component" {
                     in_component = false;
                     if !id.is_empty() {
@@ -117,7 +117,7 @@ fn parse_appstream_buf<R: BufRead>(reader: R) -> HashMap<String, AppstreamMeta> 
             }
             Ok(Event::Text(ref e)) => {
                 if in_component {
-                    let txt = String::from_utf8_lossy(e.as_ref()).to_string();
+                    let txt = e.as_ref().to_string();
                     if in_desc {
                         text_buf.push_str(&txt);
                         text_buf.push(' ');

@@ -231,6 +231,7 @@ impl Store {
                 message: msg.clone(),
                 action: None,
                 duration_ms: 6000,
+                on_finished: None,
                 builder: Rc::new(move |dismissing| {
                     with_theme(snackbar_theme, || {
                         material3::Snackbar(
