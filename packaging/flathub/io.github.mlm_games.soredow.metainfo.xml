@@ -26,6 +26,21 @@
     </screenshot>
   </screenshots>
   <releases>
+    <release version="0.5.0" date="2026-10-20" type="stable">
+      <description>
+        <ul>
+          <li>bump repose to 0.31.28</li>
+          <li>Save ui (needs repose bump)</li>
+          <li>align center</li>
+          <li>improve UI</li>
+          <li>better ui</li>
+          <li>bump to repose 0.22.5</li>
+          <li>use app_shell as the bin</li>
+          <li>use arm builds for ci</li>
+          <li>Update cargo ver with lock</li>
+        </ul>
+      </description>
+    </release>
     <release version="0.1.0" date="2025-11-02"/>
   </releases>
   <branding>
