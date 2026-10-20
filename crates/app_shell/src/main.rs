@@ -1,4 +1,5 @@
 use crossbeam_channel as chan;
+#[cfg(target_os = "linux")]
 use log::error;
 use repose_core::Modifier;
 use std::{rc::Rc, sync::Arc};
@@ -12,15 +13,15 @@ use domain::{Executor, PackageBackend};
 use repose_platform::{AppConfig, run_desktop_app_with_config};
 use repose_ui::overlay::{OverlayHandle, SnackbarController};
 
-#[cfg(feature = "backend-alpm")]
+#[cfg(all(feature = "backend-alpm", target_os = "linux"))]
 use backend_alpm::AlpmBackend;
-#[cfg(feature = "backend-appimage")]
+#[cfg(all(feature = "backend-appimage", target_os = "linux"))]
 use backend_appimage::AppImageBackend;
-#[cfg(feature = "backend-aur")]
+#[cfg(all(feature = "backend-aur", target_os = "linux"))]
 use backend_aur::AurBackend;
-#[cfg(feature = "backend-flatpak")]
+#[cfg(all(feature = "backend-flatpak", target_os = "linux"))]
 use backend_flatpak::FlatpakBackend;
-#[cfg(feature = "backend-packagekit")]
+#[cfg(all(feature = "backend-packagekit", target_os = "linux"))]
 use backend_packagekit::PackageKitBackend;
 
 fn main() -> anyhow::Result<()> {
@@ -35,13 +36,13 @@ fn main() -> anyhow::Result<()> {
     #[allow(unused_mut)]
     let mut backends: Vec<(&'static str, Arc<dyn PackageBackend>)> = Vec::new();
 
-    #[cfg(feature = "backend-alpm")]
+    #[cfg(all(feature = "backend-alpm", target_os = "linux"))]
     if settings.enable_repo {
         let repo: Arc<dyn PackageBackend> = Arc::new(AlpmBackend::new());
         backends.push((repo.name(), repo));
     }
 
-    #[cfg(feature = "backend-packagekit")]
+    #[cfg(all(feature = "backend-packagekit", target_os = "linux"))]
     match PackageKitBackend::new() {
         Ok(pk) => {
             let pk: Arc<dyn PackageBackend> = Arc::new(pk);
@@ -50,13 +51,13 @@ fn main() -> anyhow::Result<()> {
         Err(e) => error!("PackageKit backend unavailable: {e}"),
     }
 
-    #[cfg(feature = "backend-aur")]
+    #[cfg(all(feature = "backend-aur", target_os = "linux"))]
     if settings.enable_aur {
         let aur: Arc<dyn PackageBackend> = Arc::new(AurBackend::new());
         backends.push((aur.name(), aur));
     }
 
-    #[cfg(feature = "backend-flatpak")]
+    #[cfg(all(feature = "backend-flatpak", target_os = "linux"))]
     if settings.enable_flatpak {
         match FlatpakBackend::new(true) {
             Ok(fp) => {
@@ -67,7 +68,7 @@ fn main() -> anyhow::Result<()> {
         }
     }
 
-    #[cfg(feature = "backend-appimage")]
+    #[cfg(all(feature = "backend-appimage", target_os = "linux"))]
     if settings.enable_appimage {
         let appimage: Arc<dyn PackageBackend> = Arc::new(AppImageBackend::new());
         backends.push((appimage.name(), appimage));
