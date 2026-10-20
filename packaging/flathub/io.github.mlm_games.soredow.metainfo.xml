@@ -26,6 +26,13 @@
     </screenshot>
   </screenshots>
   <releases>
+    <release version="0.5.1" date="2026-10-20" type="stable">
+      <description>
+        <ul>
+          <li>fix windows build</li>
+        </ul>
+      </description>
+    </release>
     <release version="0.5.0" date="2026-10-20" type="stable">
       <description>
         <ul>

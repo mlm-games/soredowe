@@ -1,3 +1,8 @@
+## v0.5.1
+
+- fix windows build
+
+
 # Changelog
 
 ## v0.5.0
