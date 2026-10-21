@@ -1,3 +1,12 @@
+[env]
+# ring CPU detection must stay baseline or it traps on non-AVX CPUs.
+CFLAGS_x86_64_unknown_linux_gnu = { value = "-O2 -march=x86-64 -mno-avx -mno-avx2", force = true }
+CXXFLAGS_x86_64_unknown_linux_gnu = { value = "-O2 -march=x86-64 -mno-avx -mno-avx2", force = true }
+CFLAGS_aarch64_unknown_linux_gnu = { value = "-O2 -march=armv8-a", force = true }
+CXXFLAGS_aarch64_unknown_linux_gnu = { value = "-O2 -march=armv8-a", force = true }
+CFLAGS_x86_64_pc_windows_gnu = { value = "-O2 -march=x86-64 -mno-avx -mno-avx2", force = true }
+CXXFLAGS_x86_64_pc_windows_gnu = { value = "-O2 -march=x86-64 -mno-avx -mno-avx2", force = true }
+
 [target.aarch64-unknown-linux-gnu]
 linker = "aarch64-linux-gnu-gcc"
 ar = "aarch64-linux-gnu-ar"
