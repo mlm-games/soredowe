@@ -95,8 +95,19 @@ fn page_header(
             Box(Modifier::new())
         },
     ));
-    let navigation =
-        Box(Modifier::new().flex_shrink(0.0)).child(navigation.unwrap_or(Box(Modifier::new())));
+    let navigation = navigation
+        .map(|view| {
+            Box(Modifier::new()
+                .flex_shrink(0.0)
+                .padding_values(PaddingValues {
+                    left: Dp(0.0),
+                    right: SPACE_4,
+                    top: Dp(0.0),
+                    bottom: Dp(0.0),
+                }))
+            .child(view)
+        })
+        .unwrap_or(Box(Modifier::new()));
     let actions = Row(Modifier::new().flex_shrink(0.0).gap(SPACE_2)).child(actions);
 
     Row(Modifier::new()
