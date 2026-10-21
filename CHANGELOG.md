@@ -1,3 +1,8 @@
+## v0.5.4
+
+- fix updates and spacing
+
+
 ## v0.5.3
 
 - fix header nav gap
