@@ -596,8 +596,25 @@ fn git_ls_remote(url: &str, branch: &str) -> Option<String> {
     } else {
         format!("refs/heads/{branch}")
     };
-    let out = Command::new("git")
-        .args(["ls-remote", url, &refspec])
+    let out = Command::new("timeout")
+        .args([
+            "-k",
+            "2",
+            "15",
+            "git",
+            "-c",
+            "http.lowSpeedLimit=1000",
+            "-c",
+            "http.lowSpeedTime=10",
+            "ls-remote",
+            url,
+            &refspec,
+        ])
+        .env("GIT_TERMINAL_PROMPT", "0")
+        .env(
+            "GIT_SSH_COMMAND",
+            "ssh -o BatchMode=yes -o ConnectTimeout=5",
+        )
         .output()
         .ok()?;
     if !out.status.success() {
@@ -651,7 +668,10 @@ impl PackageBackend for AurBackend {
             .collect())
     }
 
-    fn updates(&self, _cancel: &CancelToken) -> Result<Vec<PackageSummary>> {
+    fn updates(&self, cancel: &CancelToken) -> Result<Vec<PackageSummary>> {
+        if cancel.is_cancelled() {
+            return Err(Error::Cancelled);
+        }
         let foreign = foreign_packages();
         if foreign.is_empty() {
             return Ok(vec![]);
@@ -691,6 +711,9 @@ impl PackageBackend for AurBackend {
             let mut dirty = false;
 
             for (name, _installed_ver) in &vcs_pkgs {
+                if cancel.is_cancelled() {
+                    return Err(Error::Cancelled);
+                }
                 let pkgbase = pkgbase_for(name);
                 let Some(pkgbuild) = fetch_pkgbuild(&pkgbase) else {
                     continue;

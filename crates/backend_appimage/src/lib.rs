@@ -6,7 +6,25 @@ use std::{
     io::{Read, Write},
     os::unix::fs::PermissionsExt,
     path::Path,
+    time::Duration,
 };
+
+fn update_agent() -> ureq::Agent {
+    ureq::Agent::new_with_config(
+        ureq::config::Config::builder()
+            .timeout_global(Some(Duration::from_secs(8)))
+            .build(),
+    )
+}
+
+fn download_agent() -> ureq::Agent {
+    ureq::Agent::new_with_config(
+        ureq::config::Config::builder()
+            .timeout_connect(Some(Duration::from_secs(10)))
+            .timeout_recv_response(Some(Duration::from_secs(10)))
+            .build(),
+    )
+}
 
 #[derive(Clone, Debug, Serialize, Deserialize)]
 struct AppImageEntry {
@@ -586,7 +604,7 @@ impl PackageBackend for AppImageBackend {
     fn updates(&self, _cancel: &CancelToken) -> Result<Vec<PackageSummary>> {
         let cfg = read_config();
         let mut results = Vec::new();
-        let agent = ureq::Agent::new_with_defaults();
+        let agent = update_agent();
         for (_key, entry) in &cfg {
             // Need an update_url (GitHub API URL) to check for updates
             let Some(ref api_url) = entry.update_url else {
@@ -662,7 +680,7 @@ impl PackageBackend for AppImageBackend {
         let dest = format!("{dir}/{}.AppImage", id.name);
         let tmp = format!("{dir}/.{}.AppImage.part", id.name);
 
-        let agent = ureq::Agent::new_with_defaults();
+        let agent = download_agent();
         let resp = agent
             .get(url)
             .call()
@@ -906,7 +924,7 @@ impl PackageBackend for AppImageBackend {
         let dest = format!("{dir}/{}.AppImage", id.name);
         let tmp = format!("{dir}/.{}.AppImage.new", id.name);
 
-        let agent = ureq::Agent::new_with_defaults();
+        let agent = download_agent();
         let resp = agent
             .get(&url)
             .call()

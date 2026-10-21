@@ -363,7 +363,7 @@ pub fn empty_state(symbol: Symbol, title: &str, body: &str, action: Option<View>
             .color(text_muted())
             .text_align(TextAlign::Center)
             .max_lines(3)
-            .modifier(Modifier::new().max_width(Dp(440.0))),
+            .modifier(Modifier::new().max_width(Dp(560.0))),
         if let Some(action) = action {
             Box(Modifier::new().height(SPACE_5)).child(action)
         } else {

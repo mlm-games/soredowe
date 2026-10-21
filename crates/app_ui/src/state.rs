@@ -10,6 +10,7 @@ use repose_navigation::Navigator;
 use repose_ui::overlay::{SnackbarController, SnackbarRequest};
 use serde::{Deserialize, Serialize};
 use std::cell::RefCell;
+use std::collections::HashSet;
 use std::rc::Rc;
 use std::sync::atomic::AtomicU64;
 
@@ -21,6 +22,11 @@ pub enum Route {
 }
 
 const MAX_LOG: usize = 256 * 1024;
+
+fn dedup_packages(items: &mut Vec<PackageSummary>) {
+    let mut seen = HashSet::new();
+    items.retain(|pkg| seen.insert(pkg.id.clone()));
+}
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub enum SortMode {
@@ -43,6 +49,8 @@ pub struct AppState {
     pub raw_results: Vec<PackageSummary>,
     /// Filtered + sorted view shown in the list.
     pub results: Vec<PackageSummary>,
+    /// Last completed update check, kept across view changes.
+    pub updates: Option<Vec<PackageSummary>>,
 
     pub selected: Option<PackageId>,
     /// Full details for the selected package (fetched lazily).
@@ -83,6 +91,7 @@ impl AppState {
                     && (!self.filter_installed || x.installed)
             })
             .collect();
+        dedup_packages(&mut v);
 
         match self.sort {
             SortMode::NameAsc => v.sort_by(|a, b| a.id.name.cmp(&b.id.name)),
@@ -155,6 +164,7 @@ pub struct Store {
     next_id: AtomicU64,
     pub snackbar: Option<SnackbarController>,
     pub navigator: RefCell<Option<Navigator<Route>>>,
+    updates_job: RefCell<Option<u64>>,
 }
 
 impl Store {
@@ -178,6 +188,7 @@ impl Store {
             next_id: std::sync::atomic::AtomicU64::new(1),
             snackbar,
             navigator: RefCell::new(None),
+            updates_job: RefCell::new(None),
         }
     }
 
@@ -186,14 +197,16 @@ impl Store {
             .fetch_add(1, std::sync::atomic::Ordering::SeqCst)
     }
 
-    fn send_job(&self, kind: JobKind, payload: JobPayload) {
+    fn send_job(&self, kind: JobKind, payload: JobPayload) -> u64 {
+        let id = self.jid();
         let _ = self.tx_jobs.send(Job {
-            id: self.jid(),
+            id,
             kind,
             payload,
             created_at: std::time::SystemTime::now(),
             cancel: CancelToken::new(),
         });
+        id
     }
 
     fn send_search(&self, q: &str) {
@@ -201,7 +214,11 @@ impl Store {
     }
 
     fn send_upgrades(&self) {
-        self.send_job(JobKind::Upgrades, JobPayload::None);
+        if self.updates_job.borrow().is_some() {
+            return;
+        }
+        let id = self.send_job(JobKind::Upgrades, JobPayload::None);
+        *self.updates_job.borrow_mut() = Some(id);
     }
 
     fn send_details(&self, id: &PackageId) {
@@ -275,6 +292,13 @@ impl Store {
             }
 
             Action::Refresh => {
+                s.updates = None;
+                if s.in_upgrades_view {
+                    s.raw_results.clear();
+                    s.results.clear();
+                    s.selected = None;
+                    s.detail = None;
+                }
                 self.send_job(JobKind::Refresh, JobPayload::None);
                 self.refresh_current_view(&s);
             }
@@ -282,7 +306,16 @@ impl Store {
             Action::Upgrades => {
                 s.in_upgrades_view = true;
                 s.detail = None;
-                self.send_upgrades();
+                if let Some(items) = s.updates.clone() {
+                    s.selected = None;
+                    s.raw_results = items;
+                    s.refilter();
+                } else {
+                    s.raw_results.clear();
+                    s.results.clear();
+                    s.selected = None;
+                    self.send_upgrades();
+                }
             }
 
             Action::UpgradeAll => {
@@ -312,6 +345,11 @@ impl Store {
             }
 
             Action::Progress(mut p) => {
+                if matches!(p.stage, Stage::Finished | Stage::Failed)
+                    && *self.updates_job.borrow() == Some(p.job_id)
+                {
+                    *self.updates_job.borrow_mut() = None;
+                }
                 let log = p.log.take();
                 if let Some(ref l) = log {
                     s.append_log(l);
@@ -352,24 +390,30 @@ impl Store {
 
             Action::Event(e) => match e {
                 Event::SearchResults { items, .. } => {
-                    s.in_upgrades_view = false;
-                    let q = s.query.to_lowercase();
-                    s.raw_results = items
-                        .into_iter()
-                        .filter(|x| {
-                            q.is_empty()
-                                || x.id.name.to_lowercase().contains(&q)
-                                || x.description.to_lowercase().contains(&q)
-                        })
-                        .collect();
-                    s.refilter();
+                    if !s.in_upgrades_view {
+                        let q = s.query.to_lowercase();
+                        s.raw_results = items
+                            .into_iter()
+                            .filter(|x| {
+                                q.is_empty()
+                                    || x.id.name.to_lowercase().contains(&q)
+                                    || x.description.to_lowercase().contains(&q)
+                            })
+                            .collect();
+                        s.refilter();
+                    }
                 }
                 Event::Upgrades { items } => {
-                    s.in_upgrades_view = true;
-                    s.raw_results = items;
-                    s.refilter();
-                    s.selected = None;
-                    s.detail = None;
+                    *self.updates_job.borrow_mut() = None;
+                    let mut items = items;
+                    dedup_packages(&mut items);
+                    s.updates = Some(items.clone());
+                    if s.in_upgrades_view {
+                        s.raw_results = items;
+                        s.refilter();
+                        s.selected = None;
+                        s.detail = None;
+                    }
                 }
                 Event::Details { item } => {
                     // Only accept if it matches the current selection.
@@ -378,6 +422,7 @@ impl Store {
                     }
                 }
                 Event::SystemChanged => {
+                    s.updates = None;
                     s.selected = None;
                     s.detail = None;
                     if let Some(ref nav) = *self.navigator.borrow() {

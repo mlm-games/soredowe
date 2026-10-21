@@ -114,8 +114,8 @@ fn page_header(
         .fill_max_width()
         .height(HEADER_HEIGHT)
         .padding_values(PaddingValues {
-            left: if compact { SPACE_3 } else { SPACE_5 },
-            right: if compact { SPACE_3 } else { SPACE_5 },
+            left: page_padding(),
+            right: page_padding(),
             top: Dp(0.0),
             bottom: Dp(0.0),
         })
@@ -391,33 +391,22 @@ fn filter_bar(store: &Rc<Store>, s: &AppState) -> View {
         }),
     ]);
 
-    if compact_layout() {
-        Column(Modifier::new().fill_max_width().gap(SPACE_2)).child((
+    Column(Modifier::new().fill_max_width().gap(SPACE_2)).child((
+        Row(Modifier::new()
+            .fill_max_width()
+            .align_items(AlignItems::CENTER)
+            .gap(SPACE_2))
+        .child((
             Text("Sources")
                 .size(FONT_SM)
                 .font_weight(FontWeight::SEMI_BOLD)
                 .color(text_secondary())
-                .single_line(),
-            chips,
+                .single_line()
+                .modifier(Modifier::new().flex_grow(1.0)),
             sort_menu(store, s),
-        ))
-    } else {
-        Row(Modifier::new()
-            .fill_max_width()
-            .gap(SPACE_4)
-            .align_items(AlignItems::FLEX_START))
-        .child((
-            Column(Modifier::new().flex_grow(1.0).gap(SPACE_2)).child((
-                Text("Sources")
-                    .size(FONT_SM)
-                    .font_weight(FontWeight::SEMI_BOLD)
-                    .color(text_secondary())
-                    .single_line(),
-                chips,
-            )),
-            sort_menu(store, s),
-        ))
-    }
+        )),
+        chips,
+    ))
 }
 
 fn pkg_action(store: &Rc<Store>, pkg: &PackageSummary, upgrades_mode: bool) -> View {
@@ -542,7 +531,9 @@ fn pkg_row(store: Rc<Store>, pkg: PackageSummary, selected: bool, upgrades_mode:
 
 fn results_heading(s: &AppState) -> View {
     let count = s.results.len();
-    let title = if s.in_upgrades_view {
+    let title = if s.in_upgrades_view && s.updates.is_none() && s.active_stage.is_some() {
+        "Checking for updates".to_string()
+    } else if s.in_upgrades_view {
         if count == 1 {
             "1 update available".to_string()
         } else {
@@ -560,7 +551,8 @@ fn results_heading(s: &AppState) -> View {
 
     Row(Modifier::new()
         .fill_max_width()
-        .align_items(AlignItems::CENTER))
+        .align_items(AlignItems::CENTER)
+        .gap(SPACE_2))
     .child((
         Text(title)
             .size(FONT_SM)
@@ -582,6 +574,20 @@ fn results_heading(s: &AppState) -> View {
 }
 
 fn empty_results(store: &Rc<Store>, s: &AppState) -> View {
+    if s.in_upgrades_view && s.updates.is_none() && s.active_stage.is_some() {
+        return Box(Modifier::new()
+            .fill_max_width()
+            .weight(1.0)
+            .background(surface())
+            .border(Dp(1.0), card_border(), R_MD)
+            .clip_rounded(R_MD))
+        .child(empty_state(
+            Symbols::SYSTEM_UPDATE_ALT,
+            "Checking for updates",
+            "Soredowe is looking for available package updates.",
+            None,
+        ));
+    }
     let (symbol, title, body, action) = if s.in_upgrades_view {
         (
             Symbols::CHECK_CIRCLE,
@@ -662,6 +668,7 @@ fn results_list(store: &Rc<Store>, s: &AppState) -> View {
                 .clip_rounded(R_MD),
             state: remember_with_key("pkg_scroll", LazyColumnState::new),
             animate_spec: None::<repose_core::animation::AnimationSpec>,
+            spacing: SPACE_1,
             ..Default::default()
         },
     )
@@ -670,6 +677,7 @@ fn results_list(store: &Rc<Store>, s: &AppState) -> View {
 fn stage_name(stage: Stage) -> &'static str {
     match stage {
         Stage::Queued => "Queued",
+        Stage::Checking => "Checking for updates",
         Stage::Refreshing => "Refreshing package data",
         Stage::Searching => "Searching sources",
         Stage::Resolving => "Resolving dependencies",
@@ -1256,17 +1264,11 @@ fn settings_switch_row(
     .child((
         setting_icon(symbol),
         Column(Modifier::new().flex_grow(1.0).gap(Dp(2.0))).child((
-            Row(Modifier::new().align_items(AlignItems::CENTER).gap(SPACE_2)).child((
-                Icon(symbol)
-                    .size(Sp(17.0))
-                    .color(text_muted())
-                    .single_line(),
-                Text(title)
-                    .size(FONT_BASE)
-                    .font_weight(FontWeight::SEMI_BOLD)
-                    .color(text_primary())
-                    .single_line(),
-            )),
+            Text(title)
+                .size(FONT_BASE)
+                .font_weight(FontWeight::SEMI_BOLD)
+                .color(text_primary())
+                .single_line(),
             Text(description)
                 .size(FONT_SM)
                 .line_height(Sp(18.0))
@@ -1506,7 +1508,6 @@ fn settings_view(store: Rc<Store>, _s: &AppState) -> View {
     let scroll = remember_scroll_state("settings_scroll");
     scroll.set_show_scrollbar(false);
     let padding = page_padding();
-    let back_store = store.clone();
 
     let source_rows = vec![
         settings_switch_row(
@@ -1559,30 +1560,11 @@ fn settings_view(store: Rc<Store>, _s: &AppState) -> View {
     ];
 
     let update_store = store.clone();
-    let back_action = if compact_layout() {
-        tooltip_icon_button(
-            Symbols::CHEVRON_LEFT,
-            "Back",
-            move || {
-                if let Some(navigator) = back_store.navigator.borrow().as_ref() {
-                    navigator.pop();
-                }
-            },
-            false,
-        )
-    } else {
-        secondary_icon_button(Symbols::CHEVRON_LEFT, "Back", move || {
-            if let Some(navigator) = back_store.navigator.borrow().as_ref() {
-                navigator.pop();
-            }
-        })
-    };
     Column(Modifier::new().fill_max_size().background(bg())).child((
         page_header(
             "Settings",
             Some("Choose which package sources Soredowe uses."),
             None,
-            // Some(back_action),
             Vec::new(),
         ),
         HorizontalDivider(DividerConfig {
@@ -1779,7 +1761,6 @@ fn navigation_drawer(selected: usize, update_count: usize, actions: [Rc<dyn Fn()
             .fill_max_width()
             .height(Dp(1.0))
             .background(card_border())),
-        Box(Modifier::new().height(SPACE_2)),
         drawer_nav_item(
             Symbols::SEARCH,
             "Discover",
@@ -1908,9 +1889,7 @@ fn navigation_bar(selected: usize, update_count: usize, actions: [Rc<dyn Fn()>; 
             },
         ],
         NavigationBarConfig {
-            modifier: Modifier::new()
-                .height(Dp(68.0))
-                .border(Dp(1.0), card_border(), Dp(0.0)),
+            modifier: Modifier::new().height(Dp(68.0)),
             container_color: surface(),
             content_color: text_secondary(),
             selected_icon_color: accent(),
@@ -1932,11 +1911,7 @@ fn navigation_bar(selected: usize, update_count: usize, actions: [Rc<dyn Fn()>; 
 fn adaptive_navigation(store: Rc<Store>, route: Route, content: View) -> View {
     let state = store.state.get();
     let selected = selected_nav_index(&route, &state);
-    let update_count = if state.in_upgrades_view {
-        state.results.len()
-    } else {
-        0
-    };
+    let update_count = state.updates.as_ref().map_or(0, Vec::len);
     let actions = navigation_actions(store.clone());
 
     match window_size_class().width {
@@ -1946,6 +1921,10 @@ fn adaptive_navigation(store: Rc<Store>, route: Route, content: View) -> View {
                 .fill_max_height()
                 .background(surface()))
             .child(navigation_drawer(selected, update_count, actions)),
+            Box(Modifier::new()
+                .fill_max_height()
+                .width(Dp(1.0))
+                .background(card_border())),
             Box(Modifier::new()
                 .weight(1.0)
                 .min_width(Dp(0.0))

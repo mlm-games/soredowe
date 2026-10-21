@@ -55,6 +55,7 @@ pub struct PackageDetails {
 #[derive(Clone, Copy, Debug, PartialEq)]
 pub enum Stage {
     Queued,
+    Checking,
     Refreshing,
     Searching,
     Resolving,
@@ -268,6 +269,11 @@ pub fn installed_package_names() -> HashSet<String> {
     set
 }
 
+fn dedup_packages(items: &mut Vec<PackageSummary>) {
+    let mut seen = HashSet::new();
+    items.retain(|pkg| seen.insert(pkg.id.clone()));
+}
+
 pub struct Executor {
     backends: Vec<(&'static str, Arc<dyn PackageBackend>)>,
     tx_prog: chan::Sender<Progress>,
@@ -367,6 +373,7 @@ impl Executor {
                             }
 
                             items.sort_by(|a, b| a.id.name.cmp(&b.id.name));
+                            dedup_packages(&mut items);
                             if *active_id == Some(job.id) {
                                 tx_evt
                                     .send(Event::SearchResults { query: q, items })
@@ -422,13 +429,26 @@ impl Executor {
                             }
                         }
                         JobKind::Upgrades => {
+                            send_direct(
+                                Stage::Checking,
+                                Some("checking for updates".into()),
+                                false,
+                            );
                             let mut items: Vec<PackageSummary> = Vec::new();
                             for b in backends {
+                                if cancel.is_cancelled() {
+                                    return Err(Error::Cancelled);
+                                }
+                                send_direct(
+                                    Stage::Checking,
+                                    Some(format!("checking {} updates", b.name())),
+                                    false,
+                                );
                                 match b.updates(&cancel) {
                                     Ok(mut v) => items.append(&mut v),
                                     Err(e) => {
                                         send_direct(
-                                            Stage::Verifying,
+                                            Stage::Checking,
                                             Some(format!("{} upgrades failed: {e}", b.name())),
                                             true,
                                         );
@@ -436,6 +456,7 @@ impl Executor {
                                 }
                             }
                             items.sort_by(|a, b| a.id.name.cmp(&b.id.name));
+                            dedup_packages(&mut items);
                             tx_evt
                                 .send(Event::Upgrades { items })
                                 .map_err(|e| Error::Internal(e.to_string()))?;
