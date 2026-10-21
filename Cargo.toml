@@ -20,7 +20,6 @@ description = "package manager UI"
 rust-version = "1.98"
 
 [workspace.dependencies]
-# --- core ---
 anyhow = "1"
 thiserror = "2"
 log = "0.4"
@@ -34,13 +33,11 @@ urlencoding = "2"
 tempfile = "3"
 env_logger = "0.11"
 
-# --- package management ---
 alpm = "5"
 libflatpak = "0.7"
 packagekit-zbus = "0.2"
 ureq = { version = "3", features = ["json"] }
 
-# --- repose ---
 repose-core = "0.31.28"
 repose-devtools = "0.31.28"
 repose-material = "0.31.28"
@@ -51,11 +48,9 @@ repose-text = "0.31.28"
 repose-tree = "0.31.28"
 repose-ui = "0.31.28"
 
-# --- ui extras ---
 rfd = "0.17"
 shlex = "2"
 
-# --- internal (like renamite-*) ---
 soredowe-domain = { path = "crates/domain", version = "0.5.2" }
 soredowe-backend-alpm = { path = "crates/backend_alpm", version = "0.5.2" }
 soredowe-backend-aur = { path = "crates/backend_aur", version = "0.5.2" }
