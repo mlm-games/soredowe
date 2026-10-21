@@ -26,6 +26,14 @@
     </screenshot>
   </screenshots>
   <releases>
+    <release version="0.5.2" date="2026-10-21" type="stable">
+      <description>
+        <ul>
+          <li>build ring without avx</li>
+          <li>fix search button</li>
+        </ul>
+      </description>
+    </release>
     <release version="0.5.1" date="2026-10-20" type="stable">
       <description>
         <ul>

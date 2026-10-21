@@ -12,7 +12,7 @@ members = [
 resolver = "3"
 
 [workspace.package]
-version = "0.5.1"
+version = "0.5.2"
 edition = "2024"
 license = "GPL-3.0"
 repository = "https://github.com/mlm-games/soredowe"
@@ -56,14 +56,14 @@ rfd = "0.17"
 shlex = "2"
 
 # --- internal (like renamite-*) ---
-soredowe-domain = { path = "crates/domain", version = "0.5.1" }
-soredowe-backend-alpm = { path = "crates/backend_alpm", version = "0.5.1" }
-soredowe-backend-aur = { path = "crates/backend_aur", version = "0.5.1" }
-soredowe-backend-flatpak = { path = "crates/backend_flatpak", version = "0.5.1" }
-soredowe-backend-packagekit = { path = "crates/backend_packagekit", version = "0.5.1" }
-soredowe-backend-appimage = { path = "crates/backend_appimage", version = "0.5.1" }
-soredowe-app-ui = { path = "crates/app_ui", version = "0.5.1" }
-soredowe-app-shell = { path = "crates/app_shell", version = "0.5.1" }
+soredowe-domain = { path = "crates/domain", version = "0.5.2" }
+soredowe-backend-alpm = { path = "crates/backend_alpm", version = "0.5.2" }
+soredowe-backend-aur = { path = "crates/backend_aur", version = "0.5.2" }
+soredowe-backend-flatpak = { path = "crates/backend_flatpak", version = "0.5.2" }
+soredowe-backend-packagekit = { path = "crates/backend_packagekit", version = "0.5.2" }
+soredowe-backend-appimage = { path = "crates/backend_appimage", version = "0.5.2" }
+soredowe-app-ui = { path = "crates/app_ui", version = "0.5.2" }
+soredowe-app-shell = { path = "crates/app_shell", version = "0.5.2" }
 
 # [patch.crates-io]
 # repose-core = { path = "../repose/crates/repose-core" }

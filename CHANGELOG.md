@@ -1,3 +1,9 @@
+## v0.5.2
+
+- build ring without avx
+- fix search button
+
+
 ## v0.5.1
 
 - fix windows build
