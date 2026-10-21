@@ -177,68 +177,68 @@ fn search_section(store: &Rc<Store>, s: &AppState) -> View {
     Column(Modifier::new().fill_max_width()).child(
         Row(Modifier::new()
             .fill_max_width()
-            .height(SEARCH_HEIGHT)
-            .background(surface())
-            .border(Dp(1.0), card_border(), R_MD)
-            .clip_rounded(R_MD)
-            .align_items(AlignItems::CENTER)
-            .state_colors(StateColors {
-                default: Color::TRANSPARENT,
-                hovered: surface_alt().with_alpha_f32(0.45),
-                focused: surface_alt().with_alpha_f32(0.65),
-                pressed: surface_alt().with_alpha_f32(0.65),
-                disabled: Color::TRANSPARENT,
-                dragged: surface_alt().with_alpha_f32(0.65),
-            })
-            .padding_values(PaddingValues {
-                left: SPACE_3,
-                right: Dp(5.0),
-                top: Dp(0.0),
-                bottom: Dp(0.0),
-            }))
+            .align_items(AlignItems::CENTER))
         .child((
-            Icon(Symbols::SEARCH)
-                .size(Sp(20.0))
-                .color(text_muted())
-                .single_line(),
+            Row(Modifier::new()
+                .flex_grow(1.0)
+                .height(SEARCH_HEIGHT)
+                .background(surface())
+                .border(Dp(1.0), card_border(), R_MD)
+                .clip_rounded(R_MD)
+                .align_items(AlignItems::CENTER)
+                .state_colors(StateColors {
+                    default: Color::TRANSPARENT,
+                    hovered: surface_alt().with_alpha_f32(0.45),
+                    focused: surface_alt().with_alpha_f32(0.65),
+                    pressed: surface_alt().with_alpha_f32(0.65),
+                    disabled: Color::TRANSPARENT,
+                    dragged: surface_alt().with_alpha_f32(0.65),
+                })
+                .padding_values(PaddingValues {
+                    left: SPACE_3,
+                    right: SPACE_3,
+                    top: Dp(0.0),
+                    bottom: Dp(0.0),
+                }))
+            .child((
+                Icon(Symbols::SEARCH)
+                    .size(Sp(20.0))
+                    .color(text_muted())
+                    .single_line(),
+                Box(Modifier::new().width(SPACE_2)),
+                repose_ui::BasicTextField(
+                    search_state,
+                    Modifier::new()
+                        .flex_grow(1.0)
+                        .height(SEARCH_HEIGHT)
+                        .semantics(
+                            Semantics::new(Role::TextField)
+                                .with_label("Search packages")
+                                .with_value(initial),
+                        ),
+                    "Name, description, or repository",
+                    TextFieldConfig {
+                        line_limits: TextFieldLineLimits::SingleLine,
+                        on_change: Some(Rc::new({
+                            let store = store.clone();
+                            move |text: String| store.dispatch(Action::SetQuery(text))
+                        })),
+                        on_submit: Some(Rc::new({
+                            let store = store.clone();
+                            move |text: String| {
+                                store.dispatch(Action::SetQuery(text));
+                                store.dispatch(Action::Search);
+                            }
+                        })),
+                        ..Default::default()
+                    },
+                ),
+            )),
             Box(Modifier::new().width(SPACE_2)),
-            repose_ui::BasicTextField(
-                search_state,
-                Modifier::new()
-                    .flex_grow(1.0)
-                    .fill_max_width()
-                    .height(SEARCH_HEIGHT)
-                    .semantics(
-                        Semantics::new(Role::TextField)
-                            .with_label("Search packages")
-                            .with_value(initial),
-                    ),
-                "Name, description, or repository",
-                TextFieldConfig {
-                    line_limits: TextFieldLineLimits::SingleLine,
-                    on_change: Some(Rc::new({
-                        let store = store.clone();
-                        move |text: String| store.dispatch(Action::SetQuery(text))
-                    })),
-                    on_submit: Some(Rc::new({
-                        let store = store.clone();
-                        move |text: String| {
-                            store.dispatch(Action::SetQuery(text));
-                            store.dispatch(Action::Search);
-                        }
-                    })),
-                    ..Default::default()
-                },
-            ),
-            tooltip_icon_button(
-                Symbols::SEARCH,
-                "Run package search",
-                {
-                    let store = store.clone();
-                    move || store.dispatch(Action::Search)
-                },
-                true,
-            ),
+            search_button({
+                let store = store.clone();
+                move || store.dispatch(Action::Search)
+            }),
         )),
     )
 }

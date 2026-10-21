@@ -5,7 +5,8 @@ use repose_core::*;
 use repose_material::material3::ThemedColor;
 use repose_material::material3::{
     Button, ButtonConfig, FilledIconButton, IconButton, IconButtonColors, IconButtonConfig,
-    OutlinedButton, TextButton, TooltipAnchorPosition, TooltipBox, TooltipConfig, TooltipState,
+    OutlinedButton, OutlinedIconButton, TextButton, TooltipAnchorPosition, TooltipBox,
+    TooltipConfig, TooltipState,
 };
 use repose_material::{Icon, Symbol};
 use repose_ui::{TextStyle, *};
@@ -147,6 +148,26 @@ pub fn secondary_button(label: &str, on_click: impl Fn() + 'static) -> View {
                 .size(FONT_BASE)
                 .font_weight(FontWeight::MEDIUM)
                 .single_line()
+        },
+    )
+}
+
+pub fn search_button(on_click: impl Fn() + 'static) -> View {
+    OutlinedIconButton(
+        Icon(Symbols::SEARCH).size(Sp(20.0)).single_line(),
+        on_click,
+        IconButtonConfig {
+            modifier: Modifier::new()
+                .semantics(Semantics::new(Role::Button).with_label("Search packages")),
+            colors: IconButtonColors {
+                container_color: Color::TRANSPARENT,
+                content_color: text_secondary(),
+                disabled_container_color: Color::TRANSPARENT,
+                disabled_content_color: text_dimmed(),
+            },
+            container_size: Some(SEARCH_HEIGHT),
+            shape_radius: Some(R_MD),
+            ..Default::default()
         },
     )
 }
