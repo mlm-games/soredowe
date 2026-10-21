@@ -1,9 +1,6 @@
 name: Publish source package to AUR
 
 on:
-  push:
-    tags:
-      - "v*"
   workflow_dispatch:
     inputs:
       version_name:
