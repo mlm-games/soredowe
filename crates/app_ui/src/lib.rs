@@ -1570,7 +1570,8 @@ fn settings_view(store: Rc<Store>, _s: &AppState) -> View {
         page_header(
             "Settings",
             Some("Choose which package sources Soredowe uses."),
-            Some(back_action),
+            None,
+            // Some(back_action),
             Vec::new(),
         ),
         HorizontalDivider(DividerConfig {
