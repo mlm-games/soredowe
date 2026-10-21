@@ -291,7 +291,7 @@ checksum = "330a5ed07fa54e4702c9d6c4174f74427fc0ef6e214bbd677ae50a5099946470"
 
 [[package]]
 name = "app_shell"
-version = "0.5.2"
+version = "0.5.3"
 dependencies = [
  "anyhow",
  "app_ui",
@@ -311,7 +311,7 @@ dependencies = [
 
 [[package]]
 name = "app_ui"
-version = "0.5.2"
+version = "0.5.3"
 dependencies = [
  "crossbeam-channel",
  "domain",
@@ -541,7 +541,7 @@ checksum = "f2032f911046de80f0a198e0901378627c33f59ea0ac00e363d481118bd70a53"
 
 [[package]]
 name = "backend_alpm"
-version = "0.5.2"
+version = "0.5.3"
 dependencies = [
  "alpm",
  "domain",
@@ -553,7 +553,7 @@ dependencies = [
 
 [[package]]
 name = "backend_appimage"
-version = "0.5.2"
+version = "0.5.3"
 dependencies = [
  "domain",
  "log",
@@ -566,7 +566,7 @@ dependencies = [
 
 [[package]]
 name = "backend_aur"
-version = "0.5.2"
+version = "0.5.3"
 dependencies = [
  "alpm",
  "domain",
@@ -580,7 +580,7 @@ dependencies = [
 
 [[package]]
 name = "backend_flatpak"
-version = "0.5.2"
+version = "0.5.3"
 dependencies = [
  "domain",
  "libflatpak",
@@ -589,7 +589,7 @@ dependencies = [
 
 [[package]]
 name = "backend_packagekit"
-version = "0.5.2"
+version = "0.5.3"
 dependencies = [
  "domain",
  "log",
@@ -1152,7 +1152,7 @@ dependencies = [
 
 [[package]]
 name = "domain"
-version = "0.5.2"
+version = "0.5.3"
 dependencies = [
  "crossbeam-channel",
  "flate2",

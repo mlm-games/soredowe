@@ -1,3 +1,8 @@
+## v0.5.3
+
+- fix header nav gap
+
+
 ## v0.5.2
 
 - build ring without avx

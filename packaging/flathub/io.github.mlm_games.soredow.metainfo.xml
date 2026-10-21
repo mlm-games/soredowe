@@ -26,6 +26,13 @@
     </screenshot>
   </screenshots>
   <releases>
+    <release version="0.5.3" date="2026-10-21" type="stable">
+      <description>
+        <ul>
+          <li>fix header nav gap</li>
+        </ul>
+      </description>
+    </release>
     <release version="0.5.2" date="2026-10-21" type="stable">
       <description>
         <ul>
